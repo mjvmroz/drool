@@ -1,6 +1,7 @@
 use chunk::{Chunk, Operation};
 
 mod chunk;
+mod value;
 
 fn main() {
     let mut test = Chunk::default();
