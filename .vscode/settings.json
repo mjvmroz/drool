@@ -1,6 +1,18 @@
 {
     "editor.formatOnSave": true,
     "editor.tabSize": 4,
+    "search.exclude": {
+        "**/*.code-search": true,
+        "target": true
+    },
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "target": true
+    },
     "[json]": {
         "editor.quickSuggestions": {
             "strings": true
