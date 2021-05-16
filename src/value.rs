@@ -3,6 +3,7 @@ pub enum Value {
     Double(f64),
 }
 
+#[allow(dead_code)]
 impl Value {
     pub fn print(&self) {
         match self {

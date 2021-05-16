@@ -12,12 +12,14 @@ pub struct VM<'a> {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[allow(dead_code)]
 pub enum InterpretResult {
     InterpretOk,
     InterpretCompileError,
     InterpretRuntimeError,
 }
 
+#[allow(dead_code)]
 impl<'a> VM<'a> {
     pub fn new(chunk: &Chunk) -> VM {
         VM {
@@ -97,7 +99,7 @@ impl<'a> VM<'a> {
                     OpCode::SUBTRACT => self.binary_op_mut(Value::subtract_mut),
                     OpCode::MULTIPLY => self.binary_op_mut(Value::multiply_mut),
                     OpCode::DIVIDE => self.binary_op_mut(Value::divide_mut),
-                    _ => panic!("Corrupt bytecode"),
+                    _ => return InterpretResult::InterpretRuntimeError,
                 }
             }
         }
