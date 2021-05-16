@@ -1,46 +1,20 @@
 use crate::{data::u24, operation::Operation, value::Value};
 use std::{convert::TryInto, mem, usize};
 
-#[derive(Clone, Copy)]
-struct Positioned<A> {
-    val: A,
-    pos: usize,
-}
+use super::{line_data::LineData, Chunk};
 
-struct LineData {
-    ops: usize,
-    line: u32,
-}
-
-impl LineData {
-    fn new(line: u32) -> LineData {
-        LineData { ops: 1, line }
-    }
-
-    fn tick(&mut self) {
-        self.ops += 1;
-    }
-}
-
-pub struct Chunk {
+#[derive(Clone, Default)]
+pub struct DataChunk {
     pub code: Vec<Operation>,
     values: Vec<Value>,
     lines: Vec<LineData>,
 }
 
-impl Chunk {
-    pub fn of(f: fn(&mut Chunk) -> ()) -> Chunk {
-        let mut new = Chunk {
-            code: vec![],
-            values: vec![],
-            lines: vec![],
-        };
+impl DataChunk {
+    pub fn of(f: fn(&mut DataChunk) -> ()) -> DataChunk {
+        let mut new = DataChunk::default();
         f(&mut new);
         new
-    }
-
-    pub fn get_constant(&self, index: usize) -> &Value {
-        return &self.values[index];
     }
 
     pub fn operation(&mut self, op: Operation, line: u32) {
@@ -67,29 +41,35 @@ impl Chunk {
         }
     }
 
-    pub fn disassemble_at(&self, op_index: usize, pos: usize) {
-        let op = self.code.get(op_index).expect("Ruh roh.");
-        op.print(self, op_index, pos);
-    }
-
-    #[allow(dead_code)]
     pub fn disassemble(&self, name: String) {
         println!("== {} ==", name);
         let mut byte_pos: usize = 0;
         for (op_index, op) in self.code.iter().enumerate() {
-            op.print(&self, op_index, byte_pos);
+            op.print(self, op_index, byte_pos);
             byte_pos += mem::size_of_val(&op);
         }
     }
+}
 
-    pub fn get_line(&self, op_index: usize) -> u32 {
-        let mut op_count = 0_usize;
-        for LineData { ops, line } in &self.lines {
-            op_count += *ops;
-            if op_index < op_count {
-                return *line;
-            }
-        }
-        panic!("Corrupt line data");
+impl<'a> Chunk<'a, Vec<Operation>> for DataChunk {
+    fn code(&self) -> &Vec<Operation> {
+        &self.code
+    }
+
+    fn constant_pool(&self) -> &Vec<Value> {
+        &self.values
+    }
+
+    fn lines(&'a self) -> &'a Vec<LineData> {
+        &self.lines
+    }
+
+    fn op_at(&self, op_index: usize) -> &Operation {
+        &self.code[op_index]
+    }
+
+    fn disassemble_at(&self, op_index: usize, pos: usize) {
+        let op = self.op_at(op_index);
+        op.print(self, op_index, pos);
     }
 }

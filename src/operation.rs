@@ -27,7 +27,10 @@ impl Operation {
 
     /// Print an instruction, with extra information from its chunk
     /// index within it, and its position in memory (in bytes)
-    pub fn print(&self, chunk: &Chunk, op_index: usize, mem_pos: usize) {
+    pub fn print<'a, C, T>(&self, chunk: &'a C, op_index: usize, mem_pos: usize)
+    where
+        C: Chunk<'a, T>,
+    {
         print!("{:0>4} ", mem_pos);
         if op_index > 0 && chunk.get_line(op_index) == chunk.get_line(op_index - 1) {
             print!("   | ");

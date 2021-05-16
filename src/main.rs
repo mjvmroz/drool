@@ -1,5 +1,5 @@
 use crate::operation::Operation as Op;
-use chunk::Chunk;
+use chunk::data_chunk::DataChunk;
 use value::Value as Val;
 use vm::VM;
 
@@ -9,11 +9,11 @@ mod operation;
 mod value;
 mod vm;
 
-fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) {
+fn test(name: &str, description: &str, f: fn(&mut DataChunk) -> ()) {
     println!();
     println!("========= {:^13} =========", name);
     println!("{:^34}", description);
-    VM::new(&mut Chunk::of(f)).run();
+    VM::new(&mut DataChunk::of(f)).run();
 }
 
 fn main_example() {

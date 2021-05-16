@@ -1,5 +1,4 @@
 use std::usize;
-
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
 #[allow(non_camel_case_types)]

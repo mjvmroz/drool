@@ -1,11 +1,11 @@
 use std::usize;
 
-use crate::operation::Operation as Op;
+use crate::{chunk::Chunk, operation::Operation as Op};
 
-use crate::{chunk::Chunk, value::Value};
+use crate::{chunk::data_chunk::DataChunk, value::Value};
 
 pub struct VM<'a> {
-    chunk: &'a Chunk,
+    chunk: &'a DataChunk,
     stack: Vec<Value>,
 }
 
@@ -19,7 +19,7 @@ pub enum InterpretResult {
 
 #[allow(dead_code)]
 impl<'a> VM<'a> {
-    pub fn new(chunk: &Chunk) -> VM {
+    pub fn new(chunk: &DataChunk) -> VM {
         VM {
             chunk,
             stack: Vec::new(),
