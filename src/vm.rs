@@ -1,8 +1,8 @@
+use crate::data::FromU24Bytes;
 use rawpointer::PointerExt;
 
 use crate::{
     chunk::{Chunk, OpCode},
-    data::u24,
     value::Value,
 };
 
@@ -87,8 +87,7 @@ impl<'a> VM<'a> {
                         self.stack.push(*value);
                     }
                     OpCode::CONST_THICC => {
-                        let index = u24::from_ptr(ip);
-                        self.chunk.get_constant(index.to_usize());
+                        self.chunk.get_constant(usize::from_u24_ptr(ip));
                         ip = ip.offset(3);
                     }
                     OpCode::NEGATE => {

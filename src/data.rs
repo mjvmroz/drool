@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, usize};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
@@ -34,9 +34,14 @@ impl u24 {
                 .expect("Are you bad at math or something? This slice should have THREE things 🙄"),
         )
     }
+}
 
-    pub unsafe fn from_ptr(ptr: *const u8) -> u24 {
-        // TODO: figure out if there's an easier way of doing this.
-        u24::from_bytes([*ptr, *ptr.add(1), *ptr.add(2)])
+pub trait FromU24Bytes {
+    unsafe fn from_u24_ptr(ptr: *const u8) -> Self;
+}
+
+impl FromU24Bytes for usize {
+    unsafe fn from_u24_ptr(ptr: *const u8) -> usize {
+        usize::from_le_bytes([*ptr, *ptr.add(1), *ptr.add(2), 0, 0, 0, 0, 0])
     }
 }
