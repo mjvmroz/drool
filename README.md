@@ -1,6 +1,6 @@
 # drool 🤤
 
-A [lox 🐟](https://craftinginterpreters.com/) interpreter, written in Rust 🦀.
+A work-in-progress [lox 🐟](https://craftinginterpreters.com/) bytecode interpreter, written in Rust 🦀.
 
 "Drool" because crab stuffed salmon is an insanely decadent, guilty pleasure which produces this response.
 
