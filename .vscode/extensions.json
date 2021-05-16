@@ -1,4 +1,5 @@
 {
-  "recommendations": ["matklad.rust-analyzer"],
-  "unwantedRecommendations": ["rust-lang.rust"]
+    // Prettier is just for VSCode JSON stuff.
+    "recommendations": ["matklad.rust-analyzer", "esbenp.prettier-vscode"],
+    "unwantedRecommendations": ["rust-lang.rust"]
 }
