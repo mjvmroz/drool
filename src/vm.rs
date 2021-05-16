@@ -34,10 +34,22 @@ impl<'a> VM<'a> {
     }
 
     #[inline(always)]
+    unsafe fn force_last_mut(&mut self) -> &mut Value {
+        self.stack.last_mut().expect("Peeka beep boop no bueno 🙅‍♂️")
+    }
+
+    #[inline(always)]
     unsafe fn binary_op(&mut self, op: fn(Value, Value) -> Value) {
         let b = self.force_pop();
         let a = self.force_pop();
         self.stack.push(op(a, b));
+    }
+
+    #[inline(always)]
+    unsafe fn binary_op_mut(&mut self, op: fn(&mut Value, Value) -> ()) {
+        let b = self.force_pop();
+        let a = self.force_last_mut();
+        op(a, b);
     }
 
     pub fn run(&mut self) -> InterpretResult {
@@ -79,13 +91,12 @@ impl<'a> VM<'a> {
                         ip = ip.offset(3);
                     }
                     OpCode::NEGATE => {
-                        let new_value = self.force_pop().negate();
-                        self.stack.push(new_value);
+                        self.force_last_mut().negate_mut();
                     }
-                    OpCode::ADD => self.binary_op(Value::add),
-                    OpCode::SUBTRACT => self.binary_op(Value::subtract),
-                    OpCode::MULTIPLY => self.binary_op(Value::multiply),
-                    OpCode::DIVIDE => self.binary_op(Value::divide),
+                    OpCode::ADD => self.binary_op_mut(Value::add_mut),
+                    OpCode::SUBTRACT => self.binary_op_mut(Value::subtract_mut),
+                    OpCode::MULTIPLY => self.binary_op_mut(Value::multiply_mut),
+                    OpCode::DIVIDE => self.binary_op_mut(Value::divide_mut),
                     _ => panic!("Corrupt bytecode"),
                 }
             }
