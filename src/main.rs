@@ -1,9 +1,11 @@
-use chunk::{Chunk, Operation as Op};
+use crate::operation::Operation as Op;
+use chunk::Chunk;
 use value::Value as Val;
 use vm::VM;
 
 mod chunk;
 mod data;
+mod operation;
 mod value;
 mod vm;
 

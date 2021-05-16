@@ -1,65 +1,10 @@
-use crate::{data::u24, value::Value};
-use std::{convert::TryInto, mem, u8, usize};
-
-#[derive(Clone, Copy)]
-#[repr(u8, C)]
-// A friendly data representation for nicer assembly and disassembly (which comes at some cost).
-pub enum Operation {
-    Return,             // 0x00
-    ConstantSmol(u8),   // 0x01, 2
-    ConstantThicc(u24), // 0x02, 4
-    Negate,             // 0x03
-    Add,                // 0x04
-    Subtract,           // 0x05
-    Multiply,           // 0x06
-    Divide,             // 0x07
-}
+use crate::{data::u24, operation::Operation, value::Value};
+use std::{convert::TryInto, mem, usize};
 
 #[derive(Clone, Copy)]
 struct Positioned<A> {
     val: A,
     pos: usize,
-}
-
-impl Operation {
-    fn simple_instruction(name: String) {
-        println!("{}", name);
-    }
-
-    fn constant_instruction(name: String, index: usize, value: &Value) {
-        print!("{:<16} {:>4} ", name, index);
-        value.print();
-        println!();
-    }
-
-    fn print(&self, chunk: &Chunk, op_index: usize, pos: usize) {
-        print!("{:0>4} ", pos);
-        if op_index > 0 && chunk.get_line(op_index) == chunk.get_line(op_index - 1) {
-            print!("   | ");
-        } else {
-            print!("{:>4} ", chunk.get_line(op_index));
-        }
-        match self {
-            Self::Return => Self::simple_instruction("OP_RETURN".to_string()),
-            Self::ConstantSmol(i) => {
-                let index: usize = (*i).into();
-                Self::constant_instruction("OP_CONST_SMOL".to_string(), index, &chunk.values[index])
-            }
-            Self::ConstantThicc(i) => {
-                let index: usize = i.to_usize();
-                Self::constant_instruction(
-                    "OP_CONST_THICC".to_string(),
-                    index,
-                    &chunk.values[index],
-                )
-            }
-            Self::Negate => Self::simple_instruction("OP_NEGATE".to_string()),
-            Self::Add => Self::simple_instruction("OP_ADD".to_string()),
-            Self::Subtract => Self::simple_instruction("OP_SUBTRACT".to_string()),
-            Self::Multiply => Self::simple_instruction("OP_MULTIPLY".to_string()),
-            Self::Divide => Self::simple_instruction("OP_DIVIDE".to_string()),
-        }
-    }
 }
 
 struct LineData {
@@ -80,8 +25,6 @@ impl LineData {
 pub struct Chunk {
     pub code: Vec<Operation>,
     values: Vec<Value>,
-    // 1-1 mapping with line numbers.
-    // TODO: Come up with a more efficient encoding.
     lines: Vec<LineData>,
 }
 
@@ -126,8 +69,6 @@ impl Chunk {
 
     pub fn disassemble_at(&self, op_index: usize, pos: usize) {
         let op = self.code.get(op_index).expect("Ruh roh.");
-        // I really need to rethink this index stuff.
-        // Alternatively, I could just disassemble the whole chunk once in the VM and follow along. 🤷‍♂️
         op.print(self, op_index, pos);
     }
 

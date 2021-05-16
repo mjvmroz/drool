@@ -1,6 +1,6 @@
 use std::usize;
 
-use crate::chunk::Operation as Op;
+use crate::operation::Operation as Op;
 
 use crate::{chunk::Chunk, value::Value};
 
