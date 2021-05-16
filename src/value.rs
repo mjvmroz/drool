@@ -11,7 +11,6 @@ impl Value {
         }
     }
 
-    #[inline(always)]
     // Not sure how expensive this unwrapping and rewrapping is.
     // Might want to make shit mutable, or do some casting. 🧙‍♂️
     // EDIT: Turned out that was a challenge question. Added a mutating implementation.
@@ -21,63 +20,54 @@ impl Value {
         }
     }
 
-    #[inline(always)]
     pub fn negate_mut(&mut self) {
         match self {
             Self::Double(value) => *value = -(*value),
         }
     }
 
-    #[inline(always)]
     pub fn add(a: Value, b: Value) -> Value {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => Self::Double(a + b),
         }
     }
 
-    #[inline(always)]
     pub fn add_mut(a: &mut Value, b: Value) {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => *a += b,
         }
     }
 
-    #[inline(always)]
     pub fn subtract(a: Value, b: Value) -> Value {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => Self::Double(a - b),
         }
     }
 
-    #[inline(always)]
     pub fn subtract_mut(a: &mut Value, b: Value) {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => *a -= b,
         }
     }
 
-    #[inline(always)]
     pub fn multiply(a: Value, b: Value) -> Value {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => Self::Double(a * b),
         }
     }
 
-    #[inline(always)]
     pub fn multiply_mut(a: &mut Value, b: Value) {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => *a *= b,
         }
     }
 
-    #[inline(always)]
     pub fn divide(a: Value, b: Value) -> Value {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => Self::Double(a / b),
         }
     }
 
-    #[inline(always)]
     pub fn divide_mut(a: &mut Value, b: Value) {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => *a /= b,

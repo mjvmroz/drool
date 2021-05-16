@@ -1,31 +1,18 @@
 use crate::{data::u24, value::Value};
-use std::{convert::TryInto, u8, usize};
-
-// The actual constant map, for use in the real, scary world.
-#[non_exhaustive]
-pub struct OpCode {}
-impl OpCode {
-    pub const RETURN: u8 = 0x00;
-    pub const CONST_SMOL: u8 = 0x01;
-    pub const CONST_THICC: u8 = 0x02;
-    pub const NEGATE: u8 = 0x03;
-    pub const ADD: u8 = 0x04;
-    pub const SUBTRACT: u8 = 0x05;
-    pub const MULTIPLY: u8 = 0x06;
-    pub const DIVIDE: u8 = 0x07;
-}
+use std::{convert::TryInto, mem, u8, usize};
 
 #[derive(Clone, Copy)]
+#[repr(u8, C)]
 // A friendly data representation for nicer assembly and disassembly (which comes at some cost).
 pub enum Operation {
-    Return,
-    ConstantSmol(u8),
-    ConstantThicc(u24),
-    Negate,
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
+    Return,             // 0x00
+    ConstantSmol(u8),   // 0x01, 2
+    ConstantThicc(u24), // 0x02, 4
+    Negate,             // 0x03
+    Add,                // 0x04
+    Subtract,           // 0x05
+    Multiply,           // 0x06
+    Divide,             // 0x07
 }
 
 #[derive(Clone, Copy)]
@@ -35,63 +22,6 @@ struct Positioned<A> {
 }
 
 impl Operation {
-    fn write_to(&self, buffer: &mut Vec<u8>) {
-        match *self {
-            Self::Return => buffer.push(OpCode::RETURN),
-            Self::ConstantSmol(i) => {
-                buffer.push(OpCode::CONST_SMOL);
-                buffer.push(i);
-            }
-            Self::ConstantThicc(i) => {
-                buffer.push(OpCode::CONST_THICC);
-                i.to_bytes().iter().for_each(|b| buffer.push(*b));
-            }
-            Self::Negate => buffer.push(OpCode::NEGATE),
-            Self::Add => buffer.push(OpCode::ADD),
-            Self::Subtract => buffer.push(OpCode::SUBTRACT),
-            Self::Multiply => buffer.push(OpCode::MULTIPLY),
-            Self::Divide => buffer.push(OpCode::DIVIDE),
-        }
-    }
-
-    fn cost(&self) -> usize {
-        match self {
-            Self::Return => 1,
-            Self::ConstantSmol(_) => 2,
-            Self::ConstantThicc(_) => 4,
-            Self::Negate => 1,
-            Self::Add => 1,
-            Self::Subtract => 1,
-            Self::Multiply => 1,
-            Self::Divide => 1,
-        }
-    }
-
-    fn read_at(buffer: &Vec<u8>, pos: usize) -> Operation {
-        match buffer[pos] {
-            OpCode::RETURN => Operation::Return,
-            OpCode::CONST_SMOL => Operation::ConstantSmol(buffer[pos + 1]),
-            OpCode::CONST_THICC => Operation::ConstantThicc(u24::from_buffer(buffer, pos + 1)),
-            OpCode::NEGATE => Operation::Negate,
-            OpCode::ADD => Operation::Add,
-            OpCode::SUBTRACT => Operation::Subtract,
-            OpCode::MULTIPLY => Operation::Multiply,
-            OpCode::DIVIDE => Operation::Divide,
-            _ => panic!("Corrupt bytecode"),
-        }
-    }
-
-    fn read_all(buffer: &Vec<u8>) -> Vec<Positioned<Operation>> {
-        let mut pos: usize = 0;
-        let mut ops: Vec<Positioned<Operation>> = Vec::new();
-        while pos < buffer.len() {
-            let op = Operation::read_at(buffer, pos);
-            ops.push(Positioned { val: op, pos });
-            pos += op.cost();
-        }
-        return ops;
-    }
-
     fn simple_instruction(name: String) {
         println!("{}", name);
     }
@@ -110,7 +40,7 @@ impl Operation {
             print!("{:>4} ", chunk.get_line(op_index));
         }
         match self {
-            Self::Return => Operation::simple_instruction("OP_RETURN".to_string()),
+            Self::Return => Self::simple_instruction("OP_RETURN".to_string()),
             Self::ConstantSmol(i) => {
                 let index: usize = (*i).into();
                 Self::constant_instruction("OP_CONST_SMOL".to_string(), index, &chunk.values[index])
@@ -147,9 +77,8 @@ impl LineData {
     }
 }
 
-#[derive(Default)]
 pub struct Chunk {
-    code: Vec<u8>,
+    pub code: Vec<Operation>,
     values: Vec<Value>,
     // 1-1 mapping with line numbers.
     // TODO: Come up with a more efficient encoding.
@@ -158,23 +87,21 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn of(f: fn(&mut Chunk) -> ()) -> Chunk {
-        let mut new = Chunk::default();
+        let mut new = Chunk {
+            code: vec![],
+            values: vec![],
+            lines: vec![],
+        };
         f(&mut new);
         new
     }
 
-    #[inline(always)]
-    pub fn code_ptr(&self) -> *const u8 {
-        return self.code.as_ptr();
-    }
-
-    #[inline(always)]
     pub fn get_constant(&self, index: usize) -> &Value {
         return &self.values[index];
     }
 
     pub fn operation(&mut self, op: Operation, line: u32) {
-        op.write_to(&mut self.code);
+        self.code.push(op);
         match self.lines.last_mut() {
             None => self.lines.push(LineData::new(line)),
             Some(last_line) => {
@@ -198,7 +125,7 @@ impl Chunk {
     }
 
     pub fn disassemble_at(&self, op_index: usize, pos: usize) {
-        let op = Operation::read_at(&self.code, pos);
+        let op = self.code.get(op_index).expect("Ruh roh.");
         // I really need to rethink this index stuff.
         // Alternatively, I could just disassemble the whole chunk once in the VM and follow along. 🤷‍♂️
         op.print(self, op_index, pos);
@@ -207,9 +134,10 @@ impl Chunk {
     #[allow(dead_code)]
     pub fn disassemble(&self, name: String) {
         println!("== {} ==", name);
-        let ops = Operation::read_all(&self.code);
-        for (op_index, Positioned { val: op, pos }) in ops.iter().enumerate() {
-            op.print(&self, op_index, *pos)
+        let mut byte_pos: usize = 0;
+        for (op_index, op) in self.code.iter().enumerate() {
+            op.print(&self, op_index, byte_pos);
+            byte_pos += mem::size_of_val(&op);
         }
     }
 
