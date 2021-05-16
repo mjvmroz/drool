@@ -37,7 +37,10 @@ impl<'a> Chunk<'a, Vec<u8>> for BytecodeChunk {
         &self.lines
     }
 
-    fn op_at(&self, op_index: usize) -> &crate::operation::Operation {
-        todo!()
+    fn disassemble_at(&'a self, op_index: usize, pos: usize) {
+        let _op_code = &self.code[pos];
+
+        //op.print(self, op_index, pos);
+        todo!("in progress");
     }
 }

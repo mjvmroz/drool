@@ -1,4 +1,4 @@
-use crate::{operation::Operation, value::Value};
+use crate::value::Value;
 
 use self::line_data::LineData;
 
@@ -24,15 +24,7 @@ pub trait Chunk<'a, R> {
         panic!("Corrupt line data");
     }
 
-    fn op_at(&self, op_index: usize) -> &Operation;
-
-    fn disassemble_at(&'a self, op_index: usize, pos: usize)
-    where
-        Self: std::marker::Sized,
-    {
-        let op = self.op_at(op_index);
-        op.print(self, op_index, pos);
-    }
+    fn disassemble_at(&'a self, op_index: usize, pos: usize);
 
     fn get_constant(&self, index: usize) -> &Value {
         &self.constant_pool()[index]

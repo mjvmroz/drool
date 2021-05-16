@@ -1,5 +1,5 @@
-use crate::{data::u24, operation::Operation, value::Value};
-use std::{convert::TryInto, mem, usize};
+use crate::{operation::Operation, value::Value};
+use std::{mem, usize};
 
 use super::{line_data::LineData, Chunk};
 
@@ -34,11 +34,7 @@ impl DataChunk {
     pub fn constant(&mut self, value: Value, line: u32) {
         let val_index = self.values.len();
         self.values.push(value);
-        if val_index <= 255 {
-            self.operation(Operation::ConstantSmol(val_index.try_into().unwrap()), line);
-        } else {
-            self.operation(Operation::ConstantThicc(u24::from_usize(val_index)), line);
-        }
+        self.operation(Operation::constant(val_index), line);
     }
 
     pub fn disassemble(&self, name: String) {
@@ -64,12 +60,7 @@ impl<'a> Chunk<'a, Vec<Operation>> for DataChunk {
         &self.lines
     }
 
-    fn op_at(&self, op_index: usize) -> &Operation {
-        &self.code[op_index]
-    }
-
     fn disassemble_at(&self, op_index: usize, pos: usize) {
-        let op = self.op_at(op_index);
-        op.print(self, op_index, pos);
+        &self.code[op_index].print(self, op_index, pos);
     }
 }

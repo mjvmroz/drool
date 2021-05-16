@@ -1,4 +1,4 @@
-use crate::operation::Operation as Op;
+use crate::{chunk::bytecode_chunk::BytecodeChunk, operation::Operation as Op};
 use chunk::data_chunk::DataChunk;
 use value::Value as Val;
 use vm::VM;

@@ -15,6 +15,14 @@ pub enum Operation {
 }
 
 impl Operation {
+    pub fn constant(index: usize) -> Operation {
+        if index <= 0xFF {
+            Self::ConstantSmol(index as u8)
+        } else {
+            Self::ConstantThicc(u24::from_usize(index))
+        }
+    }
+
     fn simple_instruction(name: String) {
         println!("{}", name);
     }
