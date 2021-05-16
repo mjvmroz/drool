@@ -1,6 +1,16 @@
-use crate::{u24::u24, value::Value};
+use crate::{data::u24, value::Value};
 use std::{convert::TryInto, u8, usize};
 
+// The actual constant map.
+#[non_exhaustive]
+pub struct OpCode {}
+impl OpCode {
+    pub const RETURN: u8 = 0x00;
+    pub const CONST_SMOL: u8 = 0x01;
+    pub const CONST_THICC: u8 = 0x02;
+}
+
+// A friendly data representation for nicer assembly and disassembly (which comes at some cost).
 pub enum Operation {
     Return,
     ConstantSmol(u8),
@@ -15,13 +25,13 @@ struct Positioned<A> {
 impl Operation {
     fn write_to(&self, buffer: &mut Vec<u8>) {
         match *self {
-            Operation::Return => buffer.push(0x00),
+            Operation::Return => buffer.push(OpCode::RETURN),
             Operation::ConstantSmol(i) => {
-                buffer.push(0x01);
+                buffer.push(OpCode::CONST_SMOL);
                 buffer.push(i);
             }
             Operation::ConstantThicc(i) => {
-                buffer.push(0x02);
+                buffer.push(OpCode::CONST_THICC);
                 i.to_bytes().iter().for_each(|b| buffer.push(*b));
             }
         }
@@ -33,12 +43,12 @@ impl Operation {
         while cur < buffer.len() {
             let mut advance: usize = 1;
             let op = match buffer[cur] {
-                0x00 => Operation::Return,
-                0x01 => {
+                OpCode::RETURN => Operation::Return,
+                OpCode::CONST_SMOL => {
                     advance = 2;
                     Operation::ConstantSmol(buffer[cur + 1])
                 }
-                0x02 => {
+                OpCode::CONST_THICC => {
                     advance = 4;
                     Operation::ConstantThicc(u24::from_bytes(
                         buffer[cur + 1..=cur + 3].try_into().expect("Are you bad at math or something? This slice should have THREE things 🙄"),
@@ -117,6 +127,15 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    #[inline(always)]
+    pub fn code_ptr(&self) -> *const u8 {
+        return self.code.as_ptr();
+    }
+
+    pub fn get_constant(&self, index: u8) -> &Value {
+        return &self.values[index as usize];
+    }
+
     pub fn write(&mut self, op: Operation, line: u32) {
         op.write_to(&mut self.code);
         match self.lines.last_mut() {
