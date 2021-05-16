@@ -1,4 +1,3 @@
-#[cfg(debug_assertions)]
 use chunk::{Chunk, Operation as Op};
 use value::Value as Val;
 use vm::VM;

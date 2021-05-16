@@ -85,7 +85,6 @@ impl<'a> VM<'a> {
                     OpCode::CONST_SMOL => {
                         let value = self.chunk.get_constant(*ip.post_inc() as usize);
                         self.stack.push(*value);
-                        println!();
                     }
                     OpCode::CONST_THICC => {
                         let index = u24::from_ptr(ip);
