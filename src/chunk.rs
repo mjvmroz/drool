@@ -157,6 +157,12 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    pub fn of(f: fn(&mut Chunk) -> ()) -> Chunk {
+        let mut new = Chunk::default();
+        f(&mut new);
+        new
+    }
+
     #[inline(always)]
     pub fn code_ptr(&self) -> *const u8 {
         return self.code.as_ptr();
@@ -167,7 +173,7 @@ impl Chunk {
         return &self.values[index];
     }
 
-    pub fn write(&mut self, op: Operation, line: u32) {
+    pub fn operation(&mut self, op: Operation, line: u32) {
         op.write_to(&mut self.code);
         match self.lines.last_mut() {
             None => self.lines.push(LineData::new(line)),
@@ -181,13 +187,13 @@ impl Chunk {
         };
     }
 
-    pub fn add_constant(&mut self, value: Value, line: u32) {
+    pub fn constant(&mut self, value: Value, line: u32) {
         let val_index = self.values.len();
         self.values.push(value);
         if val_index <= 255 {
-            self.write(Operation::ConstantSmol(val_index.try_into().unwrap()), line);
+            self.operation(Operation::ConstantSmol(val_index.try_into().unwrap()), line);
         } else {
-            self.write(Operation::ConstantThicc(u24::from_usize(val_index)), line);
+            self.operation(Operation::ConstantThicc(u24::from_usize(val_index)), line);
         }
     }
 

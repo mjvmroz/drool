@@ -6,9 +6,8 @@ use crate::{
     value::Value,
 };
 
-#[derive(Default)]
-pub struct VM {
-    chunk: Chunk,
+pub struct VM<'a> {
+    chunk: &'a Chunk,
     stack: Vec<Value>,
 }
 
@@ -19,8 +18,8 @@ pub enum InterpretResult {
     InterpretRuntimeError,
 }
 
-impl VM {
-    pub fn new(chunk: Chunk) -> VM {
+impl<'a> VM<'a> {
+    pub fn new(chunk: &Chunk) -> VM {
         VM {
             chunk,
             stack: Vec::new(),
