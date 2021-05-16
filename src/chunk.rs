@@ -1,22 +1,34 @@
 use crate::{data::u24, value::Value};
 use std::{convert::TryInto, u8, usize};
 
-// The actual constant map.
+// The actual constant map, for use in the real, scary world.
 #[non_exhaustive]
 pub struct OpCode {}
 impl OpCode {
     pub const RETURN: u8 = 0x00;
     pub const CONST_SMOL: u8 = 0x01;
     pub const CONST_THICC: u8 = 0x02;
+    pub const NEGATE: u8 = 0x03;
+    pub const ADD: u8 = 0x04;
+    pub const SUBTRACT: u8 = 0x05;
+    pub const MULTIPLY: u8 = 0x06;
+    pub const DIVIDE: u8 = 0x07;
 }
 
+#[derive(Clone, Copy)]
 // A friendly data representation for nicer assembly and disassembly (which comes at some cost).
 pub enum Operation {
     Return,
     ConstantSmol(u8),
     ConstantThicc(u24),
+    Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 
+#[derive(Clone, Copy)]
 struct Positioned<A> {
     val: A,
     pos: usize,
@@ -25,40 +37,57 @@ struct Positioned<A> {
 impl Operation {
     fn write_to(&self, buffer: &mut Vec<u8>) {
         match *self {
-            Operation::Return => buffer.push(OpCode::RETURN),
-            Operation::ConstantSmol(i) => {
+            Self::Return => buffer.push(OpCode::RETURN),
+            Self::ConstantSmol(i) => {
                 buffer.push(OpCode::CONST_SMOL);
                 buffer.push(i);
             }
-            Operation::ConstantThicc(i) => {
+            Self::ConstantThicc(i) => {
                 buffer.push(OpCode::CONST_THICC);
                 i.to_bytes().iter().for_each(|b| buffer.push(*b));
             }
+            Self::Negate => buffer.push(OpCode::NEGATE),
+            Self::Add => buffer.push(OpCode::ADD),
+            Self::Subtract => buffer.push(OpCode::SUBTRACT),
+            Self::Multiply => buffer.push(OpCode::MULTIPLY),
+            Self::Divide => buffer.push(OpCode::DIVIDE),
+        }
+    }
+
+    fn cost(&self) -> usize {
+        match self {
+            Self::Return => 1,
+            Self::ConstantSmol(_) => 2,
+            Self::ConstantThicc(_) => 4,
+            Self::Negate => 1,
+            Self::Add => 1,
+            Self::Subtract => 1,
+            Self::Multiply => 1,
+            Self::Divide => 1,
+        }
+    }
+
+    fn read_at(buffer: &Vec<u8>, pos: usize) -> Operation {
+        match buffer[pos] {
+            OpCode::RETURN => Operation::Return,
+            OpCode::CONST_SMOL => Operation::ConstantSmol(buffer[pos + 1]),
+            OpCode::CONST_THICC => Operation::ConstantThicc(u24::from_buffer(buffer, pos + 1)),
+            OpCode::NEGATE => Operation::Negate,
+            OpCode::ADD => Operation::Add,
+            OpCode::SUBTRACT => Operation::Subtract,
+            OpCode::MULTIPLY => Operation::Multiply,
+            OpCode::DIVIDE => Operation::Divide,
+            _ => panic!("Corrupt bytecode"),
         }
     }
 
     fn read_all(buffer: &Vec<u8>) -> Vec<Positioned<Operation>> {
-        let mut cur: usize = 0;
+        let mut pos: usize = 0;
         let mut ops: Vec<Positioned<Operation>> = Vec::new();
-        while cur < buffer.len() {
-            let mut advance: usize = 1;
-            let op = match buffer[cur] {
-                OpCode::RETURN => Operation::Return,
-                OpCode::CONST_SMOL => {
-                    advance = 2;
-                    Operation::ConstantSmol(buffer[cur + 1])
-                }
-                OpCode::CONST_THICC => {
-                    advance = 4;
-                    Operation::ConstantThicc(u24::from_bytes(
-                        buffer[cur + 1..=cur + 3].try_into().expect("Are you bad at math or something? This slice should have THREE things 🙄"),
-                    ))
-                }
-                _ => panic!("Corrupt bytecode"),
-            };
-
-            ops.push(Positioned { val: op, pos: cur });
-            cur += advance;
+        while pos < buffer.len() {
+            let op = Operation::read_at(buffer, pos);
+            ops.push(Positioned { val: op, pos });
+            pos += op.cost();
         }
         return ops;
     }
@@ -81,23 +110,24 @@ impl Operation {
             print!("{:>4} ", chunk.get_line(op_index));
         }
         match self {
-            Operation::Return => Operation::simple_instruction("OP_RETURN".to_string()),
-            Operation::ConstantSmol(i) => {
+            Self::Return => Operation::simple_instruction("OP_RETURN".to_string()),
+            Self::ConstantSmol(i) => {
                 let index: usize = (*i).into();
-                Operation::constant_instruction(
-                    "OP_CONST_SMOL".to_string(),
-                    index,
-                    &chunk.values[index],
-                )
+                Self::constant_instruction("OP_CONST_SMOL".to_string(), index, &chunk.values[index])
             }
-            Operation::ConstantThicc(i) => {
+            Self::ConstantThicc(i) => {
                 let index: usize = i.to_usize();
-                Operation::constant_instruction(
+                Self::constant_instruction(
                     "OP_CONST_THICC".to_string(),
                     index,
                     &chunk.values[index],
                 )
             }
+            Self::Negate => Self::simple_instruction("OP_NEGATE".to_string()),
+            Self::Add => Self::simple_instruction("OP_ADD".to_string()),
+            Self::Subtract => Self::simple_instruction("OP_SUBTRACT".to_string()),
+            Self::Multiply => Self::simple_instruction("OP_MULTIPLY".to_string()),
+            Self::Divide => Self::simple_instruction("OP_DIVIDE".to_string()),
         }
     }
 }
@@ -132,8 +162,9 @@ impl Chunk {
         return self.code.as_ptr();
     }
 
-    pub fn get_constant(&self, index: u8) -> &Value {
-        return &self.values[index as usize];
+    #[inline(always)]
+    pub fn get_constant(&self, index: usize) -> &Value {
+        return &self.values[index];
     }
 
     pub fn write(&mut self, op: Operation, line: u32) {
@@ -160,6 +191,14 @@ impl Chunk {
         }
     }
 
+    pub fn disassemble_at(&self, op_index: usize, pos: usize) {
+        let op = Operation::read_at(&self.code, pos);
+        // I really need to rethink this index stuff.
+        // Alternatively, I could just disassemble the whole chunk once in the VM and follow along. 🤷‍♂️
+        op.print(self, op_index, pos);
+    }
+
+    #[allow(dead_code)]
     pub fn disassemble(&self, name: String) {
         println!("== {} ==", name);
         let ops = Operation::read_all(&self.code);

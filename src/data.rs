@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
 #[allow(non_camel_case_types)]
@@ -23,5 +25,18 @@ impl u24 {
 
     pub fn from_bytes(bytes: [u8; 3]) -> u24 {
         return u24(bytes);
+    }
+
+    pub fn from_buffer(buffer: &Vec<u8>, pos: usize) -> u24 {
+        u24::from_bytes(
+            buffer[pos..=pos + 2]
+                .try_into()
+                .expect("Are you bad at math or something? This slice should have THREE things 🙄"),
+        )
+    }
+
+    pub unsafe fn from_ptr(ptr: *const u8) -> u24 {
+        // TODO: figure out if there's an easier way of doing this.
+        u24::from_bytes([*ptr, *ptr.add(1), *ptr.add(2)])
     }
 }
