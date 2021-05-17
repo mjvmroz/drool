@@ -1,6 +1,5 @@
 use crate::{
-    data::u24,
-    operation::{get_op, put_op, OpCode, Operation},
+    operation::{get_op, put_op},
     value::Value,
 };
 
