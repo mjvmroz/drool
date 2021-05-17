@@ -54,48 +54,48 @@ impl Op {
         return op;
     }
 
+    pub fn write_to(&self, buffer: &mut Vec<u8>) {
+        match *self {
+            Op::Return => buffer.push(OpCode::RETURN),
+            Op::ConstSmol(i) => {
+                buffer.push(OpCode::CONST_SMOL);
+                buffer.push(i);
+            }
+            Op::ConstThicc(i) => {
+                buffer.push(OpCode::CONST_THICC);
+                i.to_bytes().iter().for_each(|b| buffer.push(*b));
+            }
+            Op::Negate => buffer.push(OpCode::NEGATE),
+            Op::Add => buffer.push(OpCode::ADD),
+            Op::Subtract => buffer.push(OpCode::SUBTRACT),
+            Op::Multiply => buffer.push(OpCode::MULTIPLY),
+            Op::Divide => buffer.push(OpCode::DIVIDE),
+        }
+    }
+
     pub fn cost(&self) -> usize {
         match self {
-            Self::Return => 1,
-            Self::ConstSmol(_) => 2,
-            Self::ConstThicc(_) => 4,
-            Self::Negate => 1,
-            Self::Add => 1,
-            Self::Subtract => 1,
-            Self::Multiply => 1,
-            Self::Divide => 1,
+            Op::Return => 1,
+            Op::ConstSmol(_) => 2,
+            Op::ConstThicc(_) => 4,
+            Op::Negate => 1,
+            Op::Add => 1,
+            Op::Subtract => 1,
+            Op::Multiply => 1,
+            Op::Divide => 1,
         }
     }
 
     fn name(&self) -> &str {
         match self {
-            Self::Return => "OP_RETURN",
-            Self::ConstSmol(_) => "OP_CONST_SMOL",
-            Self::ConstThicc(_) => "OP_CONST_THICC",
-            Self::Negate => "OP_NEGATE",
-            Self::Add => "OP_ADD",
-            Self::Subtract => "OP_SUBTRACT",
-            Self::Multiply => "OP_MULTIPLY",
-            Self::Divide => "OP_DIVIDE",
-        }
-    }
-
-    pub fn write_to(&self, buffer: &mut Vec<u8>) {
-        match *self {
-            Self::Return => buffer.push(OpCode::RETURN),
-            Self::ConstSmol(i) => {
-                buffer.push(OpCode::CONST_SMOL);
-                buffer.push(i);
-            }
-            Self::ConstThicc(i) => {
-                buffer.push(OpCode::CONST_THICC);
-                i.to_bytes().iter().for_each(|b| buffer.push(*b));
-            }
-            Self::Negate => buffer.push(OpCode::NEGATE),
-            Self::Add => buffer.push(OpCode::ADD),
-            Self::Subtract => buffer.push(OpCode::SUBTRACT),
-            Self::Multiply => buffer.push(OpCode::MULTIPLY),
-            Self::Divide => buffer.push(OpCode::DIVIDE),
+            Op::Return => "OP_RETURN",
+            Op::ConstSmol(_) => "OP_CONST_SMOL",
+            Op::ConstThicc(_) => "OP_CONST_THICC",
+            Op::Negate => "OP_NEGATE",
+            Op::Add => "OP_ADD",
+            Op::Subtract => "OP_SUBTRACT",
+            Op::Multiply => "OP_MULTIPLY",
+            Op::Divide => "OP_DIVIDE",
         }
     }
 

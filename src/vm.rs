@@ -1,8 +1,4 @@
-use crate::{
-    data::FromU24Bytes,
-    op::{Op, OpCode},
-};
-use rawpointer::PointerExt;
+use crate::op::Op;
 
 use crate::{chunk::Chunk, value::Value};
 
@@ -26,6 +22,16 @@ impl<'a> VM<'a> {
             chunk,
             stack: Vec::new(),
         }
+    }
+
+    pub fn print_stack(&self) {
+        print!("          ");
+        self.stack.iter().for_each(|v| {
+            print!("[ ");
+            v.print();
+            print!(" ]");
+        });
+        println!();
     }
 
     #[inline(always)]
@@ -65,23 +71,18 @@ impl<'a> VM<'a> {
 
         unsafe {
             loop {
-                let op = Op::read_and_advance(&mut ip);
-
+                let op: Op;
                 if cfg!(debug_assertions) {
                     if !self.stack.is_empty() {
-                        print!("          ");
-
-                        self.stack.iter().for_each(|v| {
-                            print!("[ ");
-                            v.print();
-                            print!(" ]");
-                        });
-                        println!();
+                        self.print_stack();
                     }
-                    let pos = (ip as usize) - (self.chunk.code_ptr() as usize);
-                    self.chunk.disassemble_at(op_index, pos);
 
+                    let pos = (ip as usize) - (self.chunk.code_ptr() as usize);
+                    op = Op::read_and_advance(&mut ip);
+                    op.print(self.chunk, op_index, pos);
                     op_index += 1;
+                } else {
+                    op = Op::read_and_advance(&mut ip);
                 }
 
                 match op {
@@ -90,12 +91,12 @@ impl<'a> VM<'a> {
                         println!();
                         return InterpretResult::InterpretOk;
                     }
-                    Op::ConstSmol(i) => {
-                        let value = self.chunk.get_constant(i.into());
+                    Op::ConstSmol(val_index) => {
+                        let value = self.chunk.get_constant(val_index.into());
                         self.stack.push(*value);
                     }
-                    Op::ConstThicc(i) => {
-                        let value = self.chunk.get_constant(i.into());
+                    Op::ConstThicc(val_index) => {
+                        let value = self.chunk.get_constant(val_index.into());
                         self.stack.push(*value);
                     }
                     Op::Negate => {

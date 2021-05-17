@@ -37,8 +37,8 @@ impl Chunk {
     }
 
     #[inline(always)]
-    pub fn get_constant(&self, index: usize) -> &Value {
-        return &self.values[index];
+    pub fn get_constant(&self, val_index: usize) -> &Value {
+        return &self.values[val_index];
     }
 
     pub fn operation(&mut self, op: Op, line: u32) {
