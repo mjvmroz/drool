@@ -34,31 +34,31 @@ impl<'a> VM<'a> {
         println!();
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn force_pop(&mut self) -> Value {
         self.stack
             .pop()
             .expect("We poppa de stack but de stacka empty 🧑‍🍳🤷‍♂️")
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn force_last_mut(&mut self) -> &mut Value {
         self.stack.last_mut().expect("Peeka beep boop no bueno 🙅‍♂️")
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn op_binary(&mut self, op: fn(Value, Value) -> Value) {
         let b = self.force_pop();
         let a = self.force_pop();
         self.stack.push(op(a, b));
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn op_unary_mut(&mut self, op: fn(&mut Value) -> ()) {
         op(self.force_last_mut());
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn op_binary_mut(&mut self, op: fn(&mut Value, Value) -> ()) {
         let b = self.force_pop();
         let a = self.force_last_mut();

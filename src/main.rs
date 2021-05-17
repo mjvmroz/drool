@@ -17,7 +17,7 @@ fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) {
     let chunk = Chunk::of(f);
     chunk.disassemble("Pre-exec disassembly:");
     println!();
-    println!("== {:^27} ==", "Execution");
+    println!("== {:^27} ==", "Execution:");
     VM::new(&chunk).run();
 }
 

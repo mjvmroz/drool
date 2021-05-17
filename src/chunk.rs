@@ -31,12 +31,12 @@ impl Chunk {
         new
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn code_ptr(&self) -> *const u8 {
         return self.code.as_ptr();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn get_constant(&self, val_index: usize) -> &Value {
         return &self.values[val_index];
     }
@@ -72,13 +72,6 @@ impl Chunk {
         } else {
             self.operation(Op::ConstThicc(val_index.into()), line);
         }
-    }
-
-    pub fn disassemble_at(&self, op_index: usize, pos: usize) {
-        let op = Op::read_at_pos(&self.code, pos);
-        // I really need to rethink this index stuff.
-        // Alternatively, I could just disassemble the whole chunk once in the VM and follow along. 🤷‍♂️
-        op.print(self, op_index, pos);
     }
 
     pub fn disassemble(&self, name: &str) {

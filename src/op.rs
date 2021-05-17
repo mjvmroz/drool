@@ -38,6 +38,7 @@ pub enum Op {
 }
 
 impl Op {
+    #[inline]
     pub unsafe fn read_and_advance(ptr: &mut *const u8) -> Op {
         let op = match **ptr {
             OpCode::RETURN => Op::Return,
