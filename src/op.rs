@@ -21,12 +21,8 @@ impl OpCode {
     pub const DIVIDE: u8       = 0x07;
 }
 
-/*
-    If I'm here, I'm likely adding a new opcode.
-    Almost everything that needs to be updated is
-    nearby, except for the VM. So don't forget that.
-*/
 pub enum Op {
+    //               // CODE, COST
     Return,          // 0x00
     ConstSmol(u8),   // 0x01, 2
     ConstThicc(u24), // 0x02, 4
