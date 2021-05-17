@@ -13,7 +13,12 @@ fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) {
     println!();
     println!("========= {:^13} =========", name);
     println!("{:^34}", description);
-    VM::new(&mut Chunk::of(f)).run();
+    println!();
+    let chunk = Chunk::of(f);
+    chunk.disassemble("Pre-exec disassembly:");
+    println!();
+    println!("== {:^27} ==", "Execution");
+    VM::new(&chunk).run();
 }
 
 fn main_example() {
@@ -111,16 +116,4 @@ fn main() {
     challenge_15_1d();
     challenge_15_2a();
     challenge_15_2b();
-
-    let c = Chunk::of(|c| {
-        c.push_const(Val::Double(4.0), 123);
-        c.push_const(Val::Double(3.0), 123);
-        c.push_const(Val::Double(2.0), 123);
-        c.operation(Op::Negate, 123);
-        c.operation(Op::Multiply, 123);
-        c.operation(Op::Negate, 123);
-        c.operation(Op::Add, 123);
-        c.operation(Op::Return, 123);
-    });
-    c.disassemble("blergh")
 }

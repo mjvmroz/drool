@@ -21,7 +21,11 @@ impl OpCode {
     pub const DIVIDE: u8       = 0x07;
 }
 
-// A friendly data representation for nicer assembly and disassembly (which comes at some cost).
+/*
+    If I'm here, I'm likely adding a new opcode.
+    Almost everything that needs to be updated is
+    nearby, except for the VM. So don't forget that.
+*/
 pub enum Op {
     Return,          // 0x00
     ConstSmol(u8),   // 0x01, 2
@@ -34,11 +38,11 @@ pub enum Op {
 }
 
 impl Op {
-    unsafe fn read_at_ptr(ptr: &mut *const u8) -> Op {
+    pub unsafe fn read_and_advance(ptr: &mut *const u8) -> Op {
         let op = match **ptr {
             OpCode::RETURN => Op::Return,
             OpCode::CONST_SMOL => Op::ConstSmol(*ptr.add(1)),
-            OpCode::CONST_THICC => Op::ConstThicc(u24::from_u24_ptr(*ptr)),
+            OpCode::CONST_THICC => Op::ConstThicc(u24::from_u8_ptr(ptr.add(1))),
             OpCode::NEGATE => Op::Negate,
             OpCode::ADD => Op::Add,
             OpCode::SUBTRACT => Op::Subtract,
@@ -46,7 +50,6 @@ impl Op {
             OpCode::DIVIDE => Op::Divide,
             _ => panic!("Corrupt bytecode"),
         };
-        // DANGER
         *ptr = ptr.add(op.cost());
         return op;
     }
@@ -96,40 +99,6 @@ impl Op {
         }
     }
 
-    #[allow(non_snake_case, dead_code)]
-    pub fn Const(val_index: usize) -> Op {
-        if val_index <= 0xFF {
-            Self::ConstSmol(val_index.try_into().unwrap())
-        } else {
-            Self::ConstThicc(u24::from(val_index))
-        }
-    }
-
-    pub fn read_at_pos(buffer: &Vec<u8>, pos: usize) -> Op {
-        unsafe { Self::read_at_ptr(&mut buffer.as_ptr().add(pos)) }
-    }
-
-    pub fn read_all(buffer: &Vec<u8>) -> Vec<Op> {
-        let mut pos: usize = 0;
-        let mut ops: Vec<Op> = Vec::new();
-        while pos < buffer.len() {
-            let op = Op::read_at_pos(buffer, pos);
-            pos += op.cost();
-            ops.push(op);
-        }
-        return ops;
-    }
-
-    fn simple_instruction(&self) {
-        println!("{}", self.name());
-    }
-
-    fn constant_instruction(&self, index: usize, value: &Value) {
-        print!("{:<16} {:>4} ", self.name(), index);
-        value.print();
-        println!();
-    }
-
     pub fn print(&self, chunk: &Chunk, op_index: usize, pos: usize) {
         print!("{:0>4} ", pos);
         if op_index > 0 && chunk.get_line(op_index) == chunk.get_line(op_index - 1) {
@@ -153,5 +122,39 @@ impl Op {
             Self::Multiply => self.simple_instruction(),
             Self::Divide => self.simple_instruction(),
         }
+    }
+
+    fn simple_instruction(&self) {
+        println!("{}", self.name());
+    }
+
+    fn constant_instruction(&self, index: usize, value: &Value) {
+        print!("{:<16} {:>4} ", self.name(), index);
+        value.print();
+        println!();
+    }
+
+    #[allow(non_snake_case, dead_code)]
+    pub fn Const(val_index: usize) -> Op {
+        if val_index <= 0xFF {
+            Self::ConstSmol(val_index.try_into().unwrap())
+        } else {
+            Self::ConstThicc(u24::from(val_index))
+        }
+    }
+
+    pub fn read_at_pos(buffer: &Vec<u8>, pos: usize) -> Op {
+        unsafe { Self::read_and_advance(&mut buffer.as_ptr().add(pos)) }
+    }
+
+    pub fn read_all(buffer: &Vec<u8>) -> Vec<Op> {
+        let mut pos: usize = 0;
+        let mut ops: Vec<Op> = Vec::new();
+        while pos < buffer.len() {
+            let op = Op::read_at_pos(buffer, pos);
+            pos += op.cost();
+            ops.push(op);
+        }
+        return ops;
     }
 }

@@ -60,8 +60,15 @@ impl Chunk {
     pub fn push_const(&mut self, value: Value, line: u32) {
         let val_index = self.values.len();
         self.values.push(value);
-        if val_index <= 255 {
-            self.operation(Op::ConstSmol(val_index.try_into().unwrap()), line);
+        if val_index <= 0xFF {
+            self.operation(
+                Op::ConstSmol(
+                    val_index
+                        .try_into()
+                        .expect("I literally just checked that."),
+                ),
+                line,
+            );
         } else {
             self.operation(Op::ConstThicc(val_index.into()), line);
         }
@@ -75,7 +82,7 @@ impl Chunk {
     }
 
     pub fn disassemble(&self, name: &str) {
-        println!("== {} ==", name);
+        println!("== {:^27} ==", name);
 
         let ops = Op::read_all(&self.code);
         let mut pos: usize = 0;

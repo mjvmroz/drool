@@ -1,4 +1,7 @@
-use crate::{data::FromU24Bytes, op::OpCode};
+use crate::{
+    data::FromU24Bytes,
+    op::{Op, OpCode},
+};
 use rawpointer::PointerExt;
 
 use crate::{chunk::Chunk, value::Value};
@@ -62,44 +65,46 @@ impl<'a> VM<'a> {
 
         unsafe {
             loop {
-                if cfg!(debug_assertions) {
-                    print!("          ");
+                let op = Op::read_and_advance(&mut ip);
 
-                    self.stack.iter().for_each(|v| {
-                        print!("[ ");
-                        v.print();
-                        print!(" ]");
-                    });
-                    println!();
+                if cfg!(debug_assertions) {
+                    if !self.stack.is_empty() {
+                        print!("          ");
+
+                        self.stack.iter().for_each(|v| {
+                            print!("[ ");
+                            v.print();
+                            print!(" ]");
+                        });
+                        println!();
+                    }
                     let pos = (ip as usize) - (self.chunk.code_ptr() as usize);
                     self.chunk.disassemble_at(op_index, pos);
 
                     op_index += 1;
                 }
 
-                let instruction = *ip.post_inc();
-                match instruction {
-                    OpCode::RETURN => {
+                match op {
+                    Op::Return => {
                         self.force_pop().print();
                         println!();
                         return InterpretResult::InterpretOk;
                     }
-                    OpCode::CONST_SMOL => {
-                        let value = self.chunk.get_constant(*ip.post_inc() as usize);
+                    Op::ConstSmol(i) => {
+                        let value = self.chunk.get_constant(i.into());
                         self.stack.push(*value);
                     }
-                    OpCode::CONST_THICC => {
-                        self.chunk.get_constant(usize::from_u24_ptr(ip));
-                        ip = ip.offset(3);
+                    Op::ConstThicc(i) => {
+                        let value = self.chunk.get_constant(i.into());
+                        self.stack.push(*value);
                     }
-                    OpCode::NEGATE => {
+                    Op::Negate => {
                         self.op_unary_mut(Value::negate_mut);
                     }
-                    OpCode::ADD => self.op_binary_mut(Value::add_mut),
-                    OpCode::SUBTRACT => self.op_binary_mut(Value::subtract_mut),
-                    OpCode::MULTIPLY => self.op_binary_mut(Value::multiply_mut),
-                    OpCode::DIVIDE => self.op_binary_mut(Value::divide_mut),
-                    _ => return InterpretResult::InterpretRuntimeError,
+                    Op::Add => self.op_binary_mut(Value::add_mut),
+                    Op::Subtract => self.op_binary_mut(Value::subtract_mut),
+                    Op::Multiply => self.op_binary_mut(Value::multiply_mut),
+                    Op::Divide => self.op_binary_mut(Value::divide_mut),
                 }
             }
         }
