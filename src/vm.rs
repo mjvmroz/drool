@@ -1,10 +1,7 @@
-use crate::data::FromU24Bytes;
+use crate::{data::FromU24Bytes, op::OpCode};
 use rawpointer::PointerExt;
 
-use crate::{
-    chunk::{Chunk, OpCode},
-    value::Value,
-};
+use crate::{chunk::Chunk, value::Value};
 
 pub struct VM<'a> {
     chunk: &'a Chunk,
@@ -41,14 +38,19 @@ impl<'a> VM<'a> {
     }
 
     #[inline(always)]
-    unsafe fn binary_op(&mut self, op: fn(Value, Value) -> Value) {
+    unsafe fn op_binary(&mut self, op: fn(Value, Value) -> Value) {
         let b = self.force_pop();
         let a = self.force_pop();
         self.stack.push(op(a, b));
     }
 
     #[inline(always)]
-    unsafe fn binary_op_mut(&mut self, op: fn(&mut Value, Value) -> ()) {
+    unsafe fn op_unary_mut(&mut self, op: fn(&mut Value) -> ()) {
+        op(self.force_last_mut());
+    }
+
+    #[inline(always)]
+    unsafe fn op_binary_mut(&mut self, op: fn(&mut Value, Value) -> ()) {
         let b = self.force_pop();
         let a = self.force_last_mut();
         op(a, b);
@@ -91,12 +93,12 @@ impl<'a> VM<'a> {
                         ip = ip.offset(3);
                     }
                     OpCode::NEGATE => {
-                        self.force_last_mut().negate_mut();
+                        self.op_unary_mut(Value::negate_mut);
                     }
-                    OpCode::ADD => self.binary_op_mut(Value::add_mut),
-                    OpCode::SUBTRACT => self.binary_op_mut(Value::subtract_mut),
-                    OpCode::MULTIPLY => self.binary_op_mut(Value::multiply_mut),
-                    OpCode::DIVIDE => self.binary_op_mut(Value::divide_mut),
+                    OpCode::ADD => self.op_binary_mut(Value::add_mut),
+                    OpCode::SUBTRACT => self.op_binary_mut(Value::subtract_mut),
+                    OpCode::MULTIPLY => self.op_binary_mut(Value::multiply_mut),
+                    OpCode::DIVIDE => self.op_binary_mut(Value::divide_mut),
                     _ => return InterpretResult::InterpretRuntimeError,
                 }
             }

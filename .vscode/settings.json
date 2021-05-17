@@ -28,5 +28,11 @@
         "editor.wordBasedSuggestions": false,
         "editor.lineNumbers": "off",
         "editor.renderIndentGuides": false
-    }
+    },
+    // Yes, this is mandatory.
+    "vscode-pets.theme": "none",
+    "vscode-pets.petType": "crab",
+    "vscode-pets.position": "explorer",
+    "vscode-pets.petColor": "red",
+    "vscode-pets.petSize": "large"
 }
