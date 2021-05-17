@@ -130,7 +130,7 @@ impl Op {
         println!();
     }
 
-    #[allow(non_snake_case, dead_code)]
+    #[allow(non_snake_case)]
     pub fn Const(val_index: usize) -> Op {
         if val_index <= 0xFF {
             Self::ConstSmol(val_index.try_into().unwrap())

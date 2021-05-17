@@ -1,6 +1,6 @@
 use crate::op::Op;
 use crate::value::Value;
-use std::{convert::TryInto, u8, usize};
+use std::{u8, usize};
 
 pub struct LineData {
     ops: usize,
@@ -60,18 +60,7 @@ impl Chunk {
     pub fn push_const(&mut self, value: Value, line: u32) {
         let val_index = self.values.len();
         self.values.push(value);
-        if val_index <= 0xFF {
-            self.operation(
-                Op::ConstSmol(
-                    val_index
-                        .try_into()
-                        .expect("I literally just checked that."),
-                ),
-                line,
-            );
-        } else {
-            self.operation(Op::ConstThicc(val_index.into()), line);
-        }
+        self.operation(Op::Const(val_index), line);
     }
 
     pub fn disassemble(&self, name: &str) {
