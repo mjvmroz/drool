@@ -1,7 +1,9 @@
-use crate::{chunk::bytecode_chunk::BytecodeChunk, operation::Operation as Op};
+use crate::{
+    operation::Operation as Op,
+    vm::{bytecode_vm::BytecodeVM, data_vm::DataVM, VM},
+};
 use chunk::data_chunk::DataChunk;
 use value::Value as Val;
-use vm::VM;
 
 mod chunk;
 mod data;
@@ -13,7 +15,8 @@ fn test(name: &str, description: &str, f: fn(&mut DataChunk) -> ()) {
     println!();
     println!("========= {:^13} =========", name);
     println!("{:^34}", description);
-    VM::new(&mut DataChunk::of(f)).run();
+    //DataVM::new(&mut DataChunk::of(f)).run();
+    BytecodeVM::new(&mut DataChunk::of(f).into()).run();
 }
 
 fn main_example() {

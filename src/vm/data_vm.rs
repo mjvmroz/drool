@@ -1,54 +1,29 @@
-use std::usize;
+use crate::{
+    chunk::{data_chunk::DataChunk, Chunk},
+    operation::Operation as Op,
+    value::Value,
+};
 
-use crate::{chunk::Chunk, operation::Operation as Op};
+use super::{InterpretResult, VM};
 
-use crate::{chunk::data_chunk::DataChunk, value::Value};
-
-pub struct VM<'a> {
+pub struct DataVM<'a> {
     chunk: &'a DataChunk,
     stack: Vec<Value>,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[allow(dead_code)]
-pub enum InterpretResult {
-    InterpretOk,
-    InterpretCompileError,
-    InterpretRuntimeError,
-}
-
-#[allow(dead_code)]
-impl<'a> VM<'a> {
-    pub fn new(chunk: &DataChunk) -> VM {
-        VM {
+impl<'a> VM<'a, DataChunk, Vec<Op>> for DataVM<'a> {
+    fn new(chunk: &'a DataChunk) -> Self {
+        DataVM {
             chunk,
-            stack: Vec::new(),
+            stack: vec![],
         }
     }
 
-    unsafe fn force_pop(&mut self) -> Value {
-        self.stack
-            .pop()
-            .expect("We poppa de stack but de stacka empty 🧑‍🍳🤷‍♂️")
+    fn stack(&mut self) -> &mut Vec<Value> {
+        &mut self.stack
     }
 
-    unsafe fn force_last_mut(&mut self) -> &mut Value {
-        self.stack.last_mut().expect("Peeka beep boop no bueno 🙅‍♂️")
-    }
-
-    unsafe fn binary_op(&mut self, op: fn(Value, Value) -> Value) {
-        let b = self.force_pop();
-        let a = self.force_pop();
-        self.stack.push(op(a, b));
-    }
-
-    unsafe fn binary_op_mut(&mut self, op: fn(&mut Value, Value) -> ()) {
-        let b = self.force_pop();
-        let a = self.force_last_mut();
-        op(a, b);
-    }
-
-    pub fn run(&mut self) -> InterpretResult {
+    fn run(&mut self) -> InterpretResult {
         unsafe {
             for (op_index, op) in self.chunk.code.iter().enumerate() {
                 if cfg!(debug_assertions) {
@@ -78,7 +53,7 @@ impl<'a> VM<'a> {
                         self.chunk.get_constant(i.to_usize());
                     }
                     Op::Negate => {
-                        self.force_last_mut().negate_mut();
+                        self.force_peek_mut(Value::negate_mut);
                     }
                     Op::Add => self.binary_op_mut(Value::add_mut),
                     Op::Subtract => self.binary_op_mut(Value::subtract_mut),

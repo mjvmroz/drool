@@ -1,4 +1,8 @@
-use crate::value::Value;
+use crate::{
+    data::u24,
+    operation::{get_op, put_op, OpCode, Operation},
+    value::Value,
+};
 
 use super::{data_chunk::DataChunk, line_data::LineData, Chunk};
 
@@ -14,10 +18,21 @@ pub struct BytecodeChunk {
     lines: Vec<LineData>,
 }
 
+impl BytecodeChunk {
+    pub fn code_ptr(&self) -> *const u8 {
+        self.code.as_ptr()
+    }
+}
+
 impl From<DataChunk> for BytecodeChunk {
     fn from(data_chunk: DataChunk) -> Self {
+        let mut buffer = vec![];
+        data_chunk
+            .code()
+            .iter()
+            .for_each(|op| put_op(&mut buffer, op));
         BytecodeChunk {
-            code: vec![],
+            code: buffer,
             values: data_chunk.constant_pool().clone(),
             lines: data_chunk.lines().clone(),
         }
@@ -38,9 +53,6 @@ impl<'a> Chunk<'a, Vec<u8>> for BytecodeChunk {
     }
 
     fn disassemble_at(&'a self, op_index: usize, pos: usize) {
-        let _op_code = &self.code[pos];
-
-        //op.print(self, op_index, pos);
-        todo!("in progress");
+        get_op(&self.code, pos).print(self, op_index, pos)
     }
 }
