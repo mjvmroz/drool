@@ -15,9 +15,11 @@ fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) {
     println!("{:^34}", description);
     println!();
     let chunk = Chunk::of(f);
-    chunk.disassemble("Pre-exec disassembly:");
-    println!();
-    println!("== {:^27} ==", "Execution:");
+    if cfg!(debug_assertions) {
+        chunk.disassemble("Pre-exec disassembly:");
+        println!();
+        println!("== {:^27} ==", "Execution:");
+    }
     VM::new(&chunk).run();
 }
 

@@ -126,8 +126,7 @@ impl Op {
     }
 
     fn constant_instruction(&self, index: usize, value: &Value) {
-        print!("{:<16} {:>4} ", self.name(), index);
-        value.print();
+        print!("{:<16} {:>4} {}", self.name(), index, value);
         println!();
     }
 

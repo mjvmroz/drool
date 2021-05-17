@@ -1,3 +1,5 @@
+use std::fmt::{self, Display};
+
 #[derive(Clone, Copy)]
 pub enum Value {
     Double(f64),
@@ -5,12 +7,6 @@ pub enum Value {
 
 #[allow(dead_code)]
 impl Value {
-    pub fn print(&self) {
-        match self {
-            Self::Double(value) => print!("{}", value),
-        }
-    }
-
     #[inline]
     // Not sure how expensive this unwrapping and rewrapping is.
     // Might want to make shit mutable, or do some casting. 🧙‍♂️
@@ -81,6 +77,14 @@ impl Value {
     pub fn divide_mut(a: &mut Value, b: Value) {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => *a /= b,
+        }
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Double(value) => write!(f, "{}", value),
         }
     }
 }

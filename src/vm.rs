@@ -1,10 +1,12 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::op::Op;
 
 use crate::{chunk::Chunk, value::Value};
 
 pub struct VM<'a> {
     chunk: &'a Chunk,
-    stack: Vec<Value>,
+    stack: Stack,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -20,37 +22,31 @@ impl<'a> VM<'a> {
     pub fn new(chunk: &Chunk) -> VM {
         VM {
             chunk,
-            stack: Vec::new(),
+            stack: Stack::default(),
         }
-    }
-
-    pub fn print_stack(&self) {
-        print!("          ");
-        self.stack.iter().for_each(|v| {
-            print!("[ ");
-            v.print();
-            print!(" ]");
-        });
-        println!();
     }
 
     #[inline]
     unsafe fn force_pop(&mut self) -> Value {
         self.stack
+            .0
             .pop()
             .expect("We poppa de stack but de stacka empty 🧑‍🍳🤷‍♂️")
     }
 
     #[inline]
     unsafe fn force_last_mut(&mut self) -> &mut Value {
-        self.stack.last_mut().expect("Peeka beep boop no bueno 🙅‍♂️")
+        self.stack
+            .0
+            .last_mut()
+            .expect("Peeka beep boop no bueno 🙅‍♂️")
     }
 
     #[inline]
     unsafe fn op_binary(&mut self, op: fn(Value, Value) -> Value) {
         let b = self.force_pop();
         let a = self.force_pop();
-        self.stack.push(op(a, b));
+        self.stack.0.push(op(a, b));
     }
 
     #[inline]
@@ -65,6 +61,16 @@ impl<'a> VM<'a> {
         op(a, b);
     }
 
+    #[inline]
+    fn is_stack_empty(&self) -> bool {
+        self.stack.0.is_empty()
+    }
+
+    #[inline]
+    fn stack_push(&mut self, value: Value) {
+        self.stack.0.push(value)
+    }
+
     pub fn run(&mut self) -> InterpretResult {
         let mut ip = self.chunk.code_ptr();
         let mut op_index: usize = 0;
@@ -73,8 +79,8 @@ impl<'a> VM<'a> {
             loop {
                 let op: Op;
                 if cfg!(debug_assertions) {
-                    if !self.stack.is_empty() {
-                        self.print_stack();
+                    if !self.is_stack_empty() {
+                        println!("{}", self.stack);
                     }
 
                     let pos = (ip as usize) - (self.chunk.code_ptr() as usize);
@@ -87,17 +93,16 @@ impl<'a> VM<'a> {
 
                 match op {
                     Op::Return => {
-                        self.force_pop().print();
-                        println!();
+                        println!("{}", self.force_pop());
                         return InterpretResult::InterpretOk;
                     }
                     Op::ConstSmol(val_index) => {
                         let value = self.chunk.get_constant(val_index.into());
-                        self.stack.push(*value);
+                        self.stack_push(*value);
                     }
                     Op::ConstThicc(val_index) => {
                         let value = self.chunk.get_constant(val_index.into());
-                        self.stack.push(*value);
+                        self.stack_push(*value);
                     }
                     Op::Negate => {
                         self.op_unary_mut(Value::negate_mut);
@@ -109,5 +114,17 @@ impl<'a> VM<'a> {
                 }
             }
         }
+    }
+}
+
+#[derive(Default)]
+struct Stack(Vec<Value>);
+impl Display for Stack {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "          ").expect("OK! ✌️");
+        self.0.iter().for_each(|v| {
+            write!(f, "[ {} ]", v).expect("OK! ✌️");
+        });
+        Ok(())
     }
 }

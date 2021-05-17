@@ -10,4 +10,4 @@ This project likely won't do that, as it's my first foray into the language.
 
 I'm trying to squeeze performance out of this thing for the interpreter, but am sacrificing a little for ergonomics in the assembler and disassembler.
 
-The result is that I have some stuff (eg. `Operation` / `OpCode`) encoded twice. If I knew more about Rust, perhaps I could avoid this 🤷‍♂️. I'm figuring it out as I go, but I'm already sold. This language is awesome.
+It's possible that I'm losing some juice in my instruction decoding. I think Rust should be able to understand through my inlining that the VM's use of the `Op` struct is transient in release builds, but I'm not 100% sure.
