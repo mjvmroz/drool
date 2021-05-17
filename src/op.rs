@@ -132,11 +132,9 @@ impl Op {
 
     #[allow(non_snake_case)]
     pub fn Const(val_index: usize) -> Op {
-        if val_index <= 0xFF {
-            Self::ConstSmol(val_index.try_into().unwrap())
-        } else {
-            Self::ConstThicc(u24::from(val_index))
-        }
+        val_index
+            .try_into()
+            .map_or(Self::ConstThicc(u24::from(val_index)), Self::ConstSmol)
     }
 
     pub fn read_at_pos(buffer: &Vec<u8>, pos: usize) -> Op {

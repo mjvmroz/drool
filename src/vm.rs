@@ -121,6 +121,7 @@ impl<'a> VM<'a> {
 struct Stack(Vec<Value>);
 impl Display for Stack {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "          ").and(self.0.iter().map(|v| write!(f, "[ {} ]", v)).collect())
+        write!(f, "          ")?;
+        self.0.iter().map(|v| write!(f, "[ {} ]", v)).collect()
     }
 }
