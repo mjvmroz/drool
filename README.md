@@ -8,6 +8,6 @@ This project likely won't do that, as it's my first foray into the language.
 
 ## Approach
 
-I'm trying to squeeze performance out of this thing for the interpreter, but am sacrificing a little for ergonomics in the assembler and disassembler.
+I'm trying to squeeze performance out of the VM, but am sacrificing a little for ergonomics in the dis/assembler, scanner and compiler.
 
-It's possible that I'm losing some juice in my instruction decoding. I think Rust should be able to understand through my inlining that the VM's use of the `Op` struct is transient in release builds, but I'm not 100% sure.
+It's possible that I'm losing a little juice through memory waste when decoding instructions in the VM. I think Rust _should_ be able to understand through my inlining that the VM's use of the `Op` struct is transient in release builds, but I'm not 100% sure. 🐢
