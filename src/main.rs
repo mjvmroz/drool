@@ -1,11 +1,19 @@
+use std::{
+    env, io,
+    process::{self},
+};
+
 use chunk::Chunk;
 use op::Op;
+use repl::Repl;
 use value::Value as Val;
 use vm::VM;
 
 mod chunk;
+mod compiler;
 mod data;
 mod op;
+mod repl;
 mod value;
 mod vm;
 
@@ -110,7 +118,43 @@ fn challenge_15_2b() {
     });
 }
 
-fn main() {
+fn repl() {
+    let chunk = Chunk::of(|c| c.operation(Op::Return, 1));
+    Repl::new(VM::new(&chunk)).start().expect("Oh noes");
+}
+
+fn run_file(filename: &str) -> io::Result<()> {
+    let source = std::fs::read_to_string(filename)?;
+    match VM::interpret(&source) {
+        Ok(()) => (),
+        Err(err) => match err {
+            vm::InterpretError::Compile => {
+                println!("Compilation failed");
+                process::exit(exitcode::DATAERR);
+            }
+            vm::InterpretError::Runtime(rte) => {
+                println!("Runtime error: {}", rte);
+                process::exit(exitcode::SOFTWARE);
+            }
+        },
+    };
+    Ok(())
+}
+
+fn switch() -> io::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    match args.len() {
+        1 => repl(),
+        2 => run_file(&args[1])?,
+        _ => {
+            eprintln!("Usage: drool [file]");
+            process::exit(exitcode::USAGE);
+        }
+    }
+    Ok(())
+}
+
+fn main() -> io::Result<()> {
     main_example();
     challenge_15_1a();
     challenge_15_1b();
@@ -118,4 +162,6 @@ fn main() {
     challenge_15_1d();
     challenge_15_2a();
     challenge_15_2b();
+
+    Ok(switch()?)
 }
