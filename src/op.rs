@@ -21,6 +21,11 @@ impl OpCode {
     pub const DIVIDE: u8       = 0x07;
 }
 
+#[derive(Debug)]
+// I need Clone for prop testing, but I don't want to accidentally
+// clone `Op`s in production code, since I might introduce
+// performance regressions.
+#[cfg_attr(test, derive(Clone, Eq, PartialEq))]
 pub enum Op {
     //               // CODE, COST
     Return,          // 0x00
@@ -158,5 +163,51 @@ impl Op {
             ops.push(op);
         }
         return ops;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::TryInto;
+
+    use super::Op;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+
+    impl Arbitrary for Op {
+        fn arbitrary<G>(g: &mut G) -> Self
+        where
+            G: Gen,
+        {
+            let n = g.next_u32() % 0x08;
+            match n {
+                0x00 => Op::Return,
+                0x01 => {
+                    let v = g.next_u32() & 0xFF;
+                    Op::ConstSmol(v.try_into().unwrap())
+                }
+                0x02 => {
+                    let v = g.next_u32() & 0xFF_FF_FF;
+                    Op::ConstThicc(v.try_into().unwrap())
+                }
+                0x03 => Op::Negate,
+                0x04 => Op::Add,
+                0x05 => Op::Subtract,
+                0x06 => Op::Multiply,
+                0x07 => Op::Divide,
+                _ => panic!(
+                    "Did you modulo correctly? I'm guessing you didn't modulo correctly. :bonk:"
+                ),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn op_codec(ops: Vec<Op>) {
+        let mut bytecode: Vec<u8> = vec![];
+        ops.iter().for_each(|op| op.write_to(&mut bytecode));
+        let decoded_ops = Op::read_all(&bytecode);
+
+        assert_eq!(ops, decoded_ops);
     }
 }
