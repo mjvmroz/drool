@@ -104,9 +104,7 @@ impl<'a> VM<'a> {
                         let value = self.chunk.get_constant(val_index.into());
                         self.stack_push(*value);
                     }
-                    Op::Negate => {
-                        self.op_unary_mut(Value::negate_mut);
-                    }
+                    Op::Negate => self.op_unary_mut(Value::negate_mut),
                     Op::Add => self.op_binary_mut(Value::add_mut),
                     Op::Subtract => self.op_binary_mut(Value::subtract_mut),
                     Op::Multiply => self.op_binary_mut(Value::multiply_mut),
