@@ -92,7 +92,7 @@ impl<'a> Scanner<'a> {
         Scanner { src, line: 0 }
     }
 
-    fn scan_token(&self) -> Token {}
+    //fn scan_token(&self) -> Token {}
 
     fn scan(&self) {
         let mut line = 0_u32;

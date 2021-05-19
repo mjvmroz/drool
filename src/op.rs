@@ -21,6 +21,11 @@ impl OpCode {
     pub const DIVIDE: u8       = 0x07;
 }
 
+#[derive(Debug)]
+// I need Clone for prop testing, but I don't want to accidentally
+// clone `Op`s in production code, since I might introduce
+// performance regressions.
+#[cfg_attr(test, derive(Clone, Eq, PartialEq))]
 pub enum Op {
     //               // CODE, COST
     Return,          // 0x00
@@ -35,6 +40,9 @@ pub enum Op {
 
 impl Op {
     #[inline]
+    /// Given a `(mut ptr) -> (ptr) -> Bytecode`, read the bytecode
+    /// into an `Op`, then advance the pointer.
+    /// Inlined, as it's used in the VM's critical path.
     pub unsafe fn read_and_advance(ptr: &mut *const u8) -> Op {
         let op = match **ptr {
             OpCode::RETURN => Op::Return,
@@ -70,6 +78,8 @@ impl Op {
         }
     }
 
+    #[inline]
+    /// Inlined, as it's used in the VM's critical path.
     pub fn cost(&self) -> usize {
         match self {
             Op::Return => 1,
@@ -106,12 +116,12 @@ impl Op {
         match self {
             Self::Return => self.simple_instruction(),
             Self::ConstSmol(i) => {
-                let index: usize = (*i).into();
-                self.constant_instruction(index, &chunk.values[index])
+                let val_index: usize = (*i).into();
+                self.constant_instruction(val_index, &chunk.get_constant(val_index))
             }
             Self::ConstThicc(i) => {
-                let index: usize = i.to_usize();
-                self.constant_instruction(index, &chunk.values[index])
+                let val_index: usize = i.to_usize();
+                self.constant_instruction(val_index, &chunk.get_constant(val_index))
             }
             Self::Negate => self.simple_instruction(),
             Self::Add => self.simple_instruction(),
@@ -131,6 +141,8 @@ impl Op {
     }
 
     #[allow(non_snake_case)]
+    /// Get an operation to access a constant. Exists since the actual instruction will
+    /// vary based on `val_index`.
     pub fn Const(val_index: usize) -> Op {
         val_index
             .try_into()
@@ -144,11 +156,58 @@ impl Op {
     pub fn read_all(buffer: &Vec<u8>) -> Vec<Op> {
         let mut pos: usize = 0;
         let mut ops: Vec<Op> = Vec::new();
+        // TODO: figure out stateful iterators
         while pos < buffer.len() {
             let op = Op::read_at_pos(buffer, pos);
             pos += op.cost();
             ops.push(op);
         }
         return ops;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::TryInto;
+
+    use super::Op;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+
+    impl Arbitrary for Op {
+        fn arbitrary<G>(g: &mut G) -> Self
+        where
+            G: Gen,
+        {
+            let n = g.next_u32() & 0x07;
+            match n {
+                0x00 => Op::Return,
+                0x01 => {
+                    let v = g.next_u32() & 0xFF;
+                    Op::ConstSmol(v.try_into().unwrap())
+                }
+                0x02 => {
+                    let v = g.next_u32() & 0xFF_FF_FF;
+                    Op::ConstThicc(v.try_into().unwrap())
+                }
+                0x03 => Op::Negate,
+                0x04 => Op::Add,
+                0x05 => Op::Subtract,
+                0x06 => Op::Multiply,
+                0x07 => Op::Divide,
+                _ => panic!(
+                    "Did you modulo correctly? I'm guessing you didn't modulo correctly. :bonk:"
+                ),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn op_codec(ops: Vec<Op>) {
+        let mut bytecode: Vec<u8> = vec![];
+        ops.iter().for_each(|op| op.write_to(&mut bytecode));
+        let decoded_ops = Op::read_all(&bytecode);
+
+        assert_eq!(ops, decoded_ops);
     }
 }
