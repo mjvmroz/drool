@@ -3,8 +3,7 @@ use std::{
     usize,
 };
 
-#[derive(Copy, Clone, Debug)]
-#[cfg_attr(test, derive(Eq, PartialEq))]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 #[allow(non_camel_case_types)]
 pub struct u24([u8; 3]);
