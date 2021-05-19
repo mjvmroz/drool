@@ -179,7 +179,7 @@ mod tests {
         where
             G: Gen,
         {
-            let n = g.next_u32() % 0x08;
+            let n = g.next_u32() & 0x07;
             match n {
                 0x00 => Op::Return,
                 0x01 => {
