@@ -29,7 +29,7 @@ pub enum InterpretError {
     Runtime(RuntimeError),
 }
 
-type InterpretResult<A> = Result<A, InterpretError>;
+pub type InterpretResult<A> = Result<A, InterpretError>;
 
 #[allow(dead_code)]
 impl<'a> VM<'a> {
@@ -45,29 +45,14 @@ impl<'a> VM<'a> {
     }
 
     #[inline]
-    unsafe fn force_last_mut(&mut self) -> InterpretResult<&mut Value> {
-        self.stack
-            .0
-            .last_mut()
-            .ok_or(InterpretError::Runtime(RuntimeError::StackUnderflow))
+    fn op_unary_mut(&mut self, op: fn(&mut Value) -> ()) -> InterpretResult<()> {
+        Ok(op(self.stack.peek_mut()?))
     }
 
     #[inline]
-    unsafe fn op_binary(&mut self, op: fn(Value, Value) -> Value) -> InterpretResult<()> {
+    fn op_binary_mut(&mut self, op: fn(&mut Value, Value) -> ()) -> InterpretResult<()> {
         let b = self.stack.pop()?;
-        let a = self.stack.pop()?;
-        Ok(self.stack.0.push(op(a, b)))
-    }
-
-    #[inline]
-    unsafe fn op_unary_mut(&mut self, op: fn(&mut Value) -> ()) -> InterpretResult<()> {
-        Ok(op(self.force_last_mut()?))
-    }
-
-    #[inline]
-    unsafe fn op_binary_mut(&mut self, op: fn(&mut Value, Value) -> ()) -> InterpretResult<()> {
-        let b = self.stack.pop()?;
-        let a = self.force_last_mut()?;
+        let a = self.stack.peek_mut()?;
         Ok(op(a, b))
     }
 
@@ -132,6 +117,13 @@ impl Stack {
     pub fn pop(&mut self) -> InterpretResult<Value> {
         self.0
             .pop()
+            .ok_or(InterpretError::Runtime(RuntimeError::StackUnderflow))
+    }
+
+    #[inline]
+    fn peek_mut(&mut self) -> InterpretResult<&mut Value> {
+        self.0
+            .last_mut()
             .ok_or(InterpretError::Runtime(RuntimeError::StackUnderflow))
     }
 }

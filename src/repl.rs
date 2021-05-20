@@ -12,8 +12,8 @@ impl<'a> Repl<'a> {
 
     pub fn start(&mut self) -> io::Result<()> {
         println!();
-        println!("==    🦀 Welcome to Drool 🤤    ==");
-        println!("         いらっしゃいませ");
+        println!();
+        println!("ドルール。");
         println!();
         loop {
             print!("> ");

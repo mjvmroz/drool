@@ -4,20 +4,22 @@ use std::{
 };
 
 use chunk::Chunk;
+use compiler::Compiler;
 use op::Op;
 use repl::Repl;
 use value::Value as Val;
-use vm::VM;
+use vm::{InterpretResult, VM};
 
 mod chunk;
 mod compiler;
 mod data;
+mod fun;
 mod op;
 mod repl;
 mod value;
 mod vm;
 
-fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) {
+fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) -> InterpretResult<()> {
     println!();
     println!("========= {:^13} =========", name);
     println!("{:^34}", description);
@@ -28,10 +30,10 @@ fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) {
         println!();
         println!("== {:^27} ==", "Execution:");
     }
-    VM::new(&chunk).run();
+    VM::new(&chunk).run()
 }
 
-fn main_example() {
+fn main_example() -> InterpretResult<()> {
     test("MAIN", "Main contents for canonical project", |c| {
         c.push_const(Val::Double(1.2), 123);
         c.push_const(Val::Double(3.4), 123);
@@ -40,10 +42,10 @@ fn main_example() {
         c.operation(Op::Divide, 123);
         c.operation(Op::Negate, 123);
         c.operation(Op::Return, 123);
-    });
+    })
 }
 
-fn challenge_15_1a() {
+fn challenge_15_1a() -> InterpretResult<()> {
     test("Ch. 15.1a", "(1 * 2 + 3)", |c| {
         c.push_const(Val::Double(1.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -51,10 +53,10 @@ fn challenge_15_1a() {
         c.push_const(Val::Double(3.0), 123);
         c.operation(Op::Add, 123);
         c.operation(Op::Return, 123);
-    });
+    })
 }
 
-fn challenge_15_1b() {
+fn challenge_15_1b() -> InterpretResult<()> {
     test("Ch. 15.1b", "(1 + 2 * 3)", |c| {
         c.push_const(Val::Double(1.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -62,10 +64,10 @@ fn challenge_15_1b() {
         c.operation(Op::Multiply, 123);
         c.operation(Op::Add, 123);
         c.operation(Op::Return, 123);
-    });
+    })
 }
 
-fn challenge_15_1c() {
+fn challenge_15_1c() -> InterpretResult<()> {
     test("Ch. 15.1c", "(3 - 2 - 1)", |c| {
         c.push_const(Val::Double(3.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -73,10 +75,10 @@ fn challenge_15_1c() {
         c.push_const(Val::Double(1.0), 123);
         c.operation(Op::Subtract, 123);
         c.operation(Op::Return, 123);
-    });
+    })
 }
 
-fn challenge_15_1d() {
+fn challenge_15_1d() -> InterpretResult<()> {
     test("Ch. 15.1d", "(1 + 2 * 3 - 4 / -5)", |c| {
         c.push_const(Val::Double(1.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -89,10 +91,10 @@ fn challenge_15_1d() {
         c.operation(Op::Divide, 123);
         c.operation(Op::Subtract, 123);
         c.operation(Op::Return, 123);
-    });
+    })
 }
 
-fn challenge_15_2a() {
+fn challenge_15_2a() -> InterpretResult<()> {
     test("Ch. 15.2a", "(4 - 3 * -2) without NEGATE", |c| {
         c.push_const(Val::Double(4.0), 123);
         c.push_const(Val::Double(3.0), 123);
@@ -102,10 +104,10 @@ fn challenge_15_2a() {
         c.operation(Op::Multiply, 123);
         c.operation(Op::Subtract, 123);
         c.operation(Op::Return, 123);
-    });
+    })
 }
 
-fn challenge_15_2b() {
+fn challenge_15_2b() -> InterpretResult<()> {
     test("Ch. 15.2b", "(4 - 3 * -2) without SUBTRACT", |c| {
         c.push_const(Val::Double(4.0), 123);
         c.push_const(Val::Double(3.0), 123);
@@ -115,7 +117,7 @@ fn challenge_15_2b() {
         c.operation(Op::Negate, 123);
         c.operation(Op::Add, 123);
         c.operation(Op::Return, 123);
-    });
+    })
 }
 
 fn repl() {
@@ -124,9 +126,9 @@ fn repl() {
 }
 
 fn run_file(filename: &str) -> io::Result<()> {
-    let source = std::fs::read_to_string(filename)?;
-    match VM::interpret(&source) {
-        Ok(()) => (),
+    let src = std::fs::read_to_string(filename)?;
+    match VM::interpret(&src) {
+        Ok(()) => Compiler::compile(&src),
         Err(err) => match err {
             vm::InterpretError::Compile => {
                 println!("Compilation failed");
@@ -153,15 +155,17 @@ fn switch() -> io::Result<()> {
     }
     Ok(())
 }
+fn run_ch15() -> InterpretResult<()> {
+    main_example()?;
+    challenge_15_1a()?;
+    challenge_15_1b()?;
+    challenge_15_1c()?;
+    challenge_15_1d()?;
+    challenge_15_2a()?;
+    challenge_15_2b()
+}
 
 fn main() -> io::Result<()> {
-    main_example();
-    challenge_15_1a();
-    challenge_15_1b();
-    challenge_15_1c();
-    challenge_15_1d();
-    challenge_15_2a();
-    challenge_15_2b();
-
+    run_ch15().expect("Uh oh.");
     Ok(switch()?)
 }
