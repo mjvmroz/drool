@@ -1,6 +1,9 @@
-use std::usize;
+use std::{
+    convert::{TryFrom, TryInto},
+    usize,
+};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 #[allow(non_camel_case_types)]
 pub struct u24([u8; 3]);
@@ -45,5 +48,19 @@ impl From<usize> for u24 {
 impl Into<usize> for u24 {
     fn into(self) -> usize {
         self.to_usize()
+    }
+}
+
+#[derive(Debug)]
+pub struct OutOfRangeError {}
+impl TryFrom<u32> for u24 {
+    type Error = OutOfRangeError;
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        if value < 0x1_00_00_00 {
+            let vv: usize = value.try_into().unwrap();
+            Ok(vv.into())
+        } else {
+            Err(OutOfRangeError {})
+        }
     }
 }
