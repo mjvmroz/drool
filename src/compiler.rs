@@ -1,33 +1,36 @@
 use core::f64;
-use std::usize;
+use std::{fmt::Display, usize};
 
 use crate::fun::CopyExtensions;
-use crate::vm::{InterpretError, InterpretResult};
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum CompileError {
+    Scan(ScanError),
+}
+
+type CompileResult<A> = Result<A, CompileError>;
 
 pub struct Compiler {}
 
 impl Compiler {
-    pub fn new() -> Compiler {
-        Compiler {}
-    }
-
-    pub fn compile(src: &str) {
-        loop {
-            //let token = scanner;
-            //let token = Scanner::scanToken();
+    pub fn compile(src: &str) -> CompileResult<()> {
+        let mut line: usize = 0;
+        print!("{:0>4} ", line);
+        for token in Scanner::new(src) {
+            let token = token.map_err(CompileError::Scan)?;
+            if token.start.line > line {
+                println!();
+                print!("{:0>4} ", token.start.line);
+                line = token.start.line;
+            }
+            print!("{} ", token.value);
         }
-    }
-}
-
-pub struct Interpreter {}
-impl Interpreter {
-    fn interpret(src: &str) -> InterpretResult<()> {
-        Compiler::compile(src);
+        println!();
         Ok(())
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 enum TokenValue {
     // Width = 1
     LeftParen,
@@ -42,18 +45,13 @@ enum TokenValue {
     Slash,
     Star,
 
-    // Width = 1|2
-    // Asserted property:
-    // An '=' suffix means typ += 1
+    // Width = 2: _[=]
     Bang,
     BangEqual,
-
     Equal,
     EqualEqual,
-
     Greater,
     GreaterEqual,
-
     Less,
     LessEqual,
 
@@ -81,7 +79,52 @@ enum TokenValue {
     While,
 }
 
-#[derive(Default, Clone, Copy)]
+impl Display for TokenValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenValue::LeftParen => write!(f, "("),
+            TokenValue::RightParen => write!(f, ")"),
+            TokenValue::LeftBrace => write!(f, "{{"),
+            TokenValue::RightBrace => write!(f, "}}"),
+            TokenValue::Comma => write!(f, ","),
+            TokenValue::Dot => write!(f, "."),
+            TokenValue::Minus => write!(f, "-"),
+            TokenValue::Plus => write!(f, "+"),
+            TokenValue::Semicolon => write!(f, ";"),
+            TokenValue::Slash => write!(f, "/"),
+            TokenValue::Star => write!(f, "*"),
+            TokenValue::Bang => write!(f, "!"),
+            TokenValue::BangEqual => write!(f, "!="),
+            TokenValue::Equal => write!(f, "="),
+            TokenValue::EqualEqual => write!(f, "=="),
+            TokenValue::Greater => write!(f, ">"),
+            TokenValue::GreaterEqual => write!(f, ">="),
+            TokenValue::Less => write!(f, "<"),
+            TokenValue::LessEqual => write!(f, "<="),
+            TokenValue::Identifier(s) => write!(f, "{}", s),
+            TokenValue::String(s) => write!(f, "\"{}\"", s),
+            TokenValue::Number(n) => write!(f, "{}", n),
+            TokenValue::And => write!(f, "and"),
+            TokenValue::Class => write!(f, "class"),
+            TokenValue::Else => write!(f, "else"),
+            TokenValue::False => write!(f, "false"),
+            TokenValue::For => write!(f, "for"),
+            TokenValue::Fun => write!(f, "fun"),
+            TokenValue::If => write!(f, "if"),
+            TokenValue::Nil => write!(f, "nil"),
+            TokenValue::Or => write!(f, "or"),
+            TokenValue::Print => write!(f, "print"),
+            TokenValue::Return => write!(f, "return"),
+            TokenValue::Super => write!(f, "super"),
+            TokenValue::This => write!(f, "this"),
+            TokenValue::True => write!(f, "true"),
+            TokenValue::Var => write!(f, "var"),
+            TokenValue::While => write!(f, "while"),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 struct CodePosition {
     pos: usize,
     line: usize,
@@ -89,44 +132,40 @@ struct CodePosition {
 }
 
 impl CodePosition {
-    // Returns a constant true for convenient use with take_while
-    fn inc(&mut self) -> bool {
-        self.inc_by(1);
-        true
-    }
-
-    fn inc_by(&mut self, i: usize) {
-        self.pos += i;
-        self.column += i;
-    }
-
-    // Returns a constant true for convenient use with take_while
-    fn inc_ln(&mut self) -> bool {
-        self.pos += 1;
-        self.line += 1;
-        self.column = 0;
-        true
+    fn inc_for(&mut self, c: char) {
+        let len = c.len_utf8();
+        self.pos += c.len_utf8();
+        if c == '\n' {
+            self.line += 1;
+            self.column = 0;
+        } else {
+            // This is an approximation because unicode is hard
+            self.column += len;
+        }
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     value: TokenValue,
     start: CodePosition,
     length: usize,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct ScanError {
     value: ScanErrorValue,
     pos: CodePosition,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum ScanErrorValue {
-    UnterminatedString,
+    UnterminatedString(Token),
+    UnexpectedCharacter(char),
 }
 
 pub type ScanResult<A> = Result<A, ScanError>;
 
-#[derive(Default)]
 struct Scanner<'s> {
     src: &'s str,
     cursor: CodePosition,
@@ -135,7 +174,7 @@ impl<'s> Scanner<'s> {
     fn new(src: &'s str) -> Scanner<'s> {
         Scanner {
             src,
-            ..Default::default()
+            cursor: Default::default(),
         }
     }
 
@@ -143,113 +182,189 @@ impl<'s> Scanner<'s> {
         self.src[index..].chars().next()
     }
 
+    fn peek(&self) -> Option<char> {
+        self.char_at(self.cursor.pos)
+    }
+
     fn peek_next(&self) -> Option<char> {
         self.char_at(self.cursor.pos + 1)
     }
 
-    fn is_end(&self) -> bool {
-        self.peek_next() == None
+    fn eat<P>(&mut self, mut predicate: P) -> String
+    where
+        P: FnMut(&char) -> bool,
+    {
+        let start = self.cursor;
+        loop {
+            match self.peek().filter(|c| predicate(c)) {
+                Some(c) => self.cursor.inc_for(c),
+                None => {
+                    break;
+                }
+            };
+        }
+        return self.src[start.pos..self.cursor.pos].to_string();
     }
 
     fn eat_whitespace(&mut self) {
-        let _lexeme = self.src[self.cursor.pos..]
-            .chars()
-            .take_while(|c| match c {
-                '\n' => self.cursor.inc_ln(),
-                c => c.is_whitespace() && self.cursor.inc(),
-            })
-            .collect::<String>();
+        self.eat(|c| c.is_whitespace());
     }
 
-    /// Designed for use with line comments.
     fn eat_to_eol(&mut self) {
-        let lexeme = self.src[self.cursor.pos..]
-            .chars()
-            .take_while(|c| *c != '\n')
-            .collect::<String>();
+        self.eat(|c| *c != '\n');
+    }
 
-        // We assert that the consumed characters contain no line breaks.
-        // This permits us to be lazy and use a single `inc_by` rather than the
-        // messy affair which is case-by-case matching.
-        self.cursor.inc_by(lexeme.len());
+    fn scan_token<P, F>(&mut self, predicate: P, to_value: F) -> Token
+    where
+        P: FnMut(&char) -> bool,
+        F: Fn(String) -> TokenValue,
+    {
+        let start = self.cursor;
+        let lexeme = self.eat(predicate);
+        Token {
+            start,
+            length: lexeme.len(),
+            value: to_value(lexeme),
+        }
+    }
+
+    fn pluck_token(&mut self, lexeme: char, value: TokenValue) -> Token {
+        let start = self.cursor;
+        self.cursor.inc_for(lexeme);
+        Token {
+            start,
+            length: lexeme.len_utf8(),
+            value: value,
+        }
+    }
+
+    fn pluck_token_mod(
+        &mut self,
+        lexeme: char,
+        modifier: char,
+        value: TokenValue,
+        modified_value: TokenValue,
+    ) -> Token {
+        debug_assert_eq!(self.peek(), Some(lexeme));
+        let start = self.cursor;
+        self.cursor.inc_for(lexeme);
+
+        let modified = self.peek() == Some(modifier);
+        if modified {
+            self.cursor.inc_for(modifier);
+        }
+
+        Token {
+            start,
+            length: if modified {
+                lexeme.len_utf8() + modifier.len_utf8()
+            } else {
+                lexeme.len_utf8()
+            },
+            value: if modified { modified_value } else { value },
+        }
     }
 
     fn scan_number(&mut self) -> Token {
-        // Keep track of where we've seen a dot. We're not fussy about
-        // it starting or terminating numbers, but we don't want any
-        // IP addresses floatin' in. We don't serve their kind here. 👿
         let mut found_dot = false;
-        let lexeme = self.src[self.cursor.pos..]
-            .chars()
-            .take_while(|c| c.is_numeric() || *c == '.' && !found_dot.post_mut(|c| *c = true))
-            .collect::<String>();
-
-        // See note on assertion in {skip_comment}
-        debug_assert!(!lexeme.contains('\n'));
-        let token = Token {
-            start: self.cursor,
-            length: lexeme.len(),
-            value: TokenValue::Number(lexeme.parse().unwrap()),
-        };
-        self.cursor.inc_by(lexeme.len());
-        token
+        self.scan_token(
+            |c| {
+                let had_found_dot = found_dot.post_mut(|c| *c = true);
+                c.is_ascii_digit() || (*c == '.' && !had_found_dot)
+            },
+            |lexeme| TokenValue::Number(lexeme.parse().unwrap()),
+        )
     }
 
     fn scan_str(&mut self) -> ScanResult<Token> {
-        // Rust strings are UTF-8, and we're iterating by Unicode
-        // code point, so it's bad practice to assume the width of
-        // characters (even though in this case I'm 99.999%
-        // confident it's one byte).
-        let start = self.cursor;
+        self.cursor.inc_for('"');
 
-        debug_assert_eq!(self.peek_next(), Some('"'));
-        self.cursor.inc_by('"'.len_utf8());
+        let token = self.scan_token(|c| c != &'"', |lexeme| TokenValue::String(lexeme));
 
-        let lexeme = self.src[self.cursor.pos..]
-            .chars()
-            .take_while(|c| match c {
-                '\n' => {
-                    self.cursor.inc_ln();
-                    true
-                }
-                c => {
-                    if c != &'"' {
-                        self.cursor.inc();
-                        true
-                    } else {
-                        false
-                    }
-                }
-            })
-            .collect::<String>();
-
-        if self.peek_next() == Some('"') {
-            Ok(Token {
-                start,
-                length: lexeme.len(),
-                value: TokenValue::String(lexeme),
-            })
+        if self.peek() == Some('"') {
+            self.cursor.inc_for('"');
+            Ok(token)
         } else {
             Err(ScanError {
-                pos: start,
-                value: ScanErrorValue::UnterminatedString,
+                pos: token.start,
+                value: ScanErrorValue::UnterminatedString(token),
             })
         }
     }
 
-    // fn scan_token(&mut self) -> TokenValue {
-    //     self.start = self.cursor.pos;
-    // }
+    fn scan_identifier(&mut self) -> Token {
+        self.scan_token(
+            |c| c.is_alphanumeric(),
+            |l| match l.as_str() {
+                "and" => TokenValue::And,
+                "class" => TokenValue::Class,
+                "else" => TokenValue::Else,
+                "false" => TokenValue::False,
+                "for" => TokenValue::For,
+                "fun" => TokenValue::Fun,
+                "if" => TokenValue::If,
+                "nil" => TokenValue::Nil,
+                "or" => TokenValue::Or,
+                "print" => TokenValue::Print,
+                "return" => TokenValue::Return,
+                "super" => TokenValue::Super,
+                "this" => TokenValue::This,
+                "true" => TokenValue::True,
+                "var" => TokenValue::Var,
+                "while" => TokenValue::While,
+                _ => TokenValue::Identifier(l),
+            },
+        )
+    }
 
-    // '(' => Some(TokenType::LeftParen),
-    // ')' => Some(TokenType::RightParen),
-    // '{' => Some(TokenType::LeftBrace),
-    // '}' => Some(TokenType::RightBrace),
-    // ';' => Some(TokenType::Semicolon),
-    // ',' => Some(TokenType::Comma),
-    // '.' => Some(TokenType::Dot),
-    // '-' => Some(TokenType::Minus),
-    // '+' => Some(TokenType::Plus),
-    // '/' => Some(TokenType::Slash),
-    // '*' => Some(TokenType::Star),
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    fn scan(&mut self) -> Option<ScanResult<Token>> {
+        self.eat_whitespace();
+        let c = self.peek()?;
+        match c {
+            '(' => Some(Ok(self.pluck_token(c, TokenValue::LeftParen))),
+            ')' => Some(Ok(self.pluck_token(c, TokenValue::RightParen))),
+            '{' => Some(Ok(self.pluck_token(c, TokenValue::LeftBrace))),
+            '}' => Some(Ok(self.pluck_token(c, TokenValue::RightBrace))),
+            ';' => Some(Ok(self.pluck_token(c, TokenValue::Semicolon))),
+            ',' => Some(Ok(self.pluck_token(c, TokenValue::Comma))),
+            '.' => Some(Ok(self.pluck_token(c, TokenValue::Dot))),
+            '-' => Some(Ok(self.pluck_token(c, TokenValue::Minus))),
+            '+' => Some(Ok(self.pluck_token(c, TokenValue::Plus))),
+            '*' => Some(Ok(self.pluck_token(c, TokenValue::Star))),
+            '>' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Greater, TokenValue::GreaterEqual))),
+            '<' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Less, TokenValue::LessEqual))),
+            '!' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Bang, TokenValue::BangEqual))),
+            '=' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Equal, TokenValue::EqualEqual))),
+            '/' => {
+                if self.peek_next() == Some('/') {
+                    self.eat_to_eol();
+                    self.scan()
+                } else {
+                    Some(Ok(self.pluck_token(c, TokenValue::Slash)))
+                }
+            },
+            '"' => Some(self.scan_str()),
+            c => {
+                if c.is_ascii_digit() {
+                    Some(Ok(self.scan_number()))
+                } else if c.is_alphabetic() {
+                    Some(Ok(self.scan_identifier()))
+                } else {
+                    Some(Err(ScanError {
+                        pos: self.cursor,
+                        value: ScanErrorValue::UnexpectedCharacter(c)
+                    }))
+                }
+            }
+        }
+    }
+}
+
+impl<'s> Iterator for Scanner<'s> {
+    type Item = ScanResult<Token>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.scan()
+    }
 }

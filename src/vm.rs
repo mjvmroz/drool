@@ -1,6 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::op::Op;
+use crate::{
+    compiler::{CompileError, Compiler},
+    op::Op,
+};
 
 use crate::{chunk::Chunk, value::Value};
 
@@ -22,10 +25,10 @@ impl Display for RuntimeError {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub enum InterpretError {
-    Compile,
+    Compile(CompileError),
     Runtime(RuntimeError),
 }
 
@@ -40,8 +43,8 @@ impl<'a> VM<'a> {
         }
     }
 
-    pub fn interpret(source: &str) -> InterpretResult<()> {
-        Ok(())
+    pub fn interpret(&mut self, src: &str) -> InterpretResult<()> {
+        Compiler::compile(&src).map_err(InterpretError::Compile)
     }
 
     #[inline]

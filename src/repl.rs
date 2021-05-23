@@ -1,4 +1,4 @@
-use std::io::{self, stdout, Read, Write};
+use std::io::{self, stdout, Write};
 
 use crate::vm::VM;
 
@@ -24,7 +24,10 @@ impl<'a> Repl<'a> {
                 println!("ありがとうございます");
                 return Ok(());
             }
-            println!("え?");
+            match self.vm.interpret(line.as_str()) {
+                Ok(()) => {}
+                Err(e) => println!("{:?}", e),
+            }
         }
     }
 }
