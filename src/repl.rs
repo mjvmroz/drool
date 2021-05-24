@@ -21,7 +21,6 @@ impl<'a> Repl<'a> {
             let line: String = text_io::read!("{}\n");
             if line.len() == 0 {
                 println!();
-                println!("ありがとうございます");
                 return Ok(());
             }
             match self.vm.interpret(line.as_str()) {
