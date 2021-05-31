@@ -1,16 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{
-    compiler::{CompileError, Compiler},
-    op::Op,
-};
+use crate::compiler::Compiler;
+use crate::{compiler::CompileError, op::Op};
 
 use crate::{chunk::Chunk, value::Value};
-
-pub struct VM<'a> {
-    chunk: &'a Chunk,
-    stack: Stack,
-}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum RuntimeError {
@@ -32,34 +25,44 @@ pub enum InterpretError {
     Runtime(RuntimeError),
 }
 
-pub type InterpretResult<A> = Result<A, InterpretError>;
+pub struct VM {
+    chunk: Chunk,
+    stack: Stack,
+}
+
+pub type InterpretResult<'s, A> = Result<A, InterpretError>;
+
+pub type RunResult<A> = Result<A, RuntimeError>;
 
 #[allow(dead_code)]
-impl<'a> VM<'a> {
-    pub fn new(chunk: &Chunk) -> VM {
+impl VM {
+    pub fn new(chunk: Chunk) -> VM {
         VM {
             chunk,
             stack: Stack::default(),
         }
     }
 
-    pub fn interpret(&mut self, src: &str) -> InterpretResult<()> {
-        Compiler::compile(&src).map_err(InterpretError::Compile)
+    pub fn interpret<'s>(&mut self, src: &'s str) -> InterpretResult<'s, ()> {
+        let chunk = Compiler::compile(&src).map_err(InterpretError::Compile)?;
+
+        self.chunk = chunk;
+        self.run().map_err(InterpretError::Runtime)
     }
 
     #[inline]
-    fn op_unary_mut(&mut self, op: fn(&mut Value) -> ()) -> InterpretResult<()> {
+    fn op_unary_mut(&mut self, op: fn(&mut Value) -> ()) -> RunResult<()> {
         Ok(op(self.stack.peek_mut()?))
     }
 
     #[inline]
-    fn op_binary_mut(&mut self, op: fn(&mut Value, Value) -> ()) -> InterpretResult<()> {
+    fn op_binary_mut(&mut self, op: fn(&mut Value, Value) -> ()) -> RunResult<()> {
         let b = self.stack.pop()?;
         let a = self.stack.peek_mut()?;
         Ok(op(a, b))
     }
 
-    pub fn run(&mut self) -> InterpretResult<()> {
+    pub fn run(&mut self) -> RunResult<()> {
         let mut ip = self.chunk.code_ptr();
         let mut op_index: usize = 0;
 
@@ -73,7 +76,7 @@ impl<'a> VM<'a> {
 
                     let pos = (ip as usize) - (self.chunk.code_ptr() as usize);
                     op = Op::read_and_advance(&mut ip);
-                    op.print(self.chunk, op_index, pos);
+                    op.print(&self.chunk, op_index, pos);
                     op_index += 1;
                 } else {
                     op = Op::read_and_advance(&mut ip);
@@ -117,17 +120,13 @@ impl Stack {
     }
 
     #[inline]
-    pub fn pop(&mut self) -> InterpretResult<Value> {
-        self.0
-            .pop()
-            .ok_or(InterpretError::Runtime(RuntimeError::StackUnderflow))
+    pub fn pop(&mut self) -> RunResult<Value> {
+        self.0.pop().ok_or(RuntimeError::StackUnderflow)
     }
 
     #[inline]
-    fn peek_mut(&mut self) -> InterpretResult<&mut Value> {
-        self.0
-            .last_mut()
-            .ok_or(InterpretError::Runtime(RuntimeError::StackUnderflow))
+    fn peek_mut(&mut self) -> RunResult<&mut Value> {
+        self.0.last_mut().ok_or(RuntimeError::StackUnderflow)
     }
 }
 impl Display for Stack {

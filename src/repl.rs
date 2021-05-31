@@ -2,11 +2,11 @@ use std::io::{self, stdout, Write};
 
 use crate::vm::VM;
 
-pub struct Repl<'a> {
-    vm: VM<'a>,
+pub struct Repl {
+    vm: VM,
 }
-impl<'a> Repl<'a> {
-    pub fn new(vm: VM<'a>) -> Repl {
+impl Repl {
+    pub fn new(vm: VM) -> Repl {
         Repl { vm }
     }
 
