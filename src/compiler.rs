@@ -166,14 +166,14 @@ impl<'s> Compiler<'s> {
     }
 
     fn unary(&mut self) -> CompileResult<()> {
-        let token = self.get_previous()?;
+        let operator = self.get_previous()?;
         self.parse_precedence(Precedence::Unary)?;
 
-        match token.typ {
-            TokenType::Minus => Ok(self.chunk.operation(Op::Negate, token.start.line)),
+        match operator.typ {
+            TokenType::Minus => Ok(self.chunk.operation(Op::Negate, operator.start.line)),
             _ => Err(CompileError::Internal(format!(
                 "Unhandled unary operator '{}'",
-                token.typ
+                operator.typ
             ))),
         }
     }
