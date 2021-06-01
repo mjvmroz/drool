@@ -21,11 +21,12 @@ impl OpCode {
     pub const DIVIDE: u8       = 0x07;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 // I need Clone for prop testing, but I don't want to accidentally
 // clone `Op`s in production code, since I might introduce
 // performance regressions.
-#[cfg_attr(test, derive(Clone, Eq, PartialEq))]
+#[cfg_attr(test, derive(Clone))]
+
 pub enum Op {
     //               // CODE, COST
     Return,          // 0x00
@@ -195,9 +196,9 @@ mod tests {
                 0x05 => Op::Subtract,
                 0x06 => Op::Multiply,
                 0x07 => Op::Divide,
-                _ => panic!(
-                    "Did you modulo correctly? I'm guessing you didn't modulo correctly. :bonk:"
-                ),
+                _ => {
+                    panic!("Did you mask correctly? I'm guessing you didn't mask correctly. :bonk:")
+                }
             }
         }
     }

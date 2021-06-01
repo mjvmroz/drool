@@ -1,9 +1,9 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 use crate::fun::CopyExtensions;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum TokenValue {
+pub enum TokenType {
     // Width = 1
     LeftParen,
     RightParen,
@@ -51,47 +51,47 @@ pub enum TokenValue {
     While,
 }
 
-impl Display for TokenValue {
+impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TokenValue::LeftParen => write!(f, "("),
-            TokenValue::RightParen => write!(f, ")"),
-            TokenValue::LeftBrace => write!(f, "{{"),
-            TokenValue::RightBrace => write!(f, "}}"),
-            TokenValue::Comma => write!(f, ","),
-            TokenValue::Dot => write!(f, "."),
-            TokenValue::Minus => write!(f, "-"),
-            TokenValue::Plus => write!(f, "+"),
-            TokenValue::Semicolon => write!(f, ";"),
-            TokenValue::Slash => write!(f, "/"),
-            TokenValue::Star => write!(f, "*"),
-            TokenValue::Bang => write!(f, "!"),
-            TokenValue::BangEqual => write!(f, "!="),
-            TokenValue::Equal => write!(f, "="),
-            TokenValue::EqualEqual => write!(f, "=="),
-            TokenValue::Greater => write!(f, ">"),
-            TokenValue::GreaterEqual => write!(f, ">="),
-            TokenValue::Less => write!(f, "<"),
-            TokenValue::LessEqual => write!(f, "<="),
-            TokenValue::Identifier => write!(f, "<identifier>"),
-            TokenValue::String => write!(f, "\"<string literal>\""),
-            TokenValue::Number => write!(f, "<numeric literal>"),
-            TokenValue::And => write!(f, "and"),
-            TokenValue::Class => write!(f, "class"),
-            TokenValue::Else => write!(f, "else"),
-            TokenValue::False => write!(f, "false"),
-            TokenValue::For => write!(f, "for"),
-            TokenValue::Fun => write!(f, "fun"),
-            TokenValue::If => write!(f, "if"),
-            TokenValue::Nil => write!(f, "nil"),
-            TokenValue::Or => write!(f, "or"),
-            TokenValue::Print => write!(f, "print"),
-            TokenValue::Return => write!(f, "return"),
-            TokenValue::Super => write!(f, "super"),
-            TokenValue::This => write!(f, "this"),
-            TokenValue::True => write!(f, "true"),
-            TokenValue::Var => write!(f, "var"),
-            TokenValue::While => write!(f, "while"),
+            TokenType::LeftParen => write!(f, "("),
+            TokenType::RightParen => write!(f, ")"),
+            TokenType::LeftBrace => write!(f, "{{"),
+            TokenType::RightBrace => write!(f, "}}"),
+            TokenType::Comma => write!(f, ","),
+            TokenType::Dot => write!(f, "."),
+            TokenType::Minus => write!(f, "-"),
+            TokenType::Plus => write!(f, "+"),
+            TokenType::Semicolon => write!(f, ";"),
+            TokenType::Slash => write!(f, "/"),
+            TokenType::Star => write!(f, "*"),
+            TokenType::Bang => write!(f, "!"),
+            TokenType::BangEqual => write!(f, "!="),
+            TokenType::Equal => write!(f, "="),
+            TokenType::EqualEqual => write!(f, "=="),
+            TokenType::Greater => write!(f, ">"),
+            TokenType::GreaterEqual => write!(f, ">="),
+            TokenType::Less => write!(f, "<"),
+            TokenType::LessEqual => write!(f, "<="),
+            TokenType::Identifier => write!(f, "<identifier>"),
+            TokenType::String => write!(f, "\"<string literal>\""),
+            TokenType::Number => write!(f, "<numeric literal>"),
+            TokenType::And => write!(f, "and"),
+            TokenType::Class => write!(f, "class"),
+            TokenType::Else => write!(f, "else"),
+            TokenType::False => write!(f, "false"),
+            TokenType::For => write!(f, "for"),
+            TokenType::Fun => write!(f, "fun"),
+            TokenType::If => write!(f, "if"),
+            TokenType::Nil => write!(f, "nil"),
+            TokenType::Or => write!(f, "or"),
+            TokenType::Print => write!(f, "print"),
+            TokenType::Return => write!(f, "return"),
+            TokenType::Super => write!(f, "super"),
+            TokenType::This => write!(f, "this"),
+            TokenType::True => write!(f, "true"),
+            TokenType::Var => write!(f, "var"),
+            TokenType::While => write!(f, "while"),
         }
     }
 }
@@ -101,6 +101,12 @@ pub struct CodePosition {
     pub pos: usize,
     pub line: usize,
     pub column: usize,
+}
+
+impl Display for CodePosition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.line, self.column)
+    }
 }
 
 impl CodePosition {
@@ -119,9 +125,15 @@ impl CodePosition {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Token {
-    pub value: TokenValue,
+    pub typ: TokenType,
     pub start: CodePosition,
     pub length: usize,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{} at {}", self.typ, self.start)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -193,24 +205,24 @@ impl<'s> Scanner<'s> {
     fn scan_token<P, F>(&mut self, predicate: P, to_value: F) -> Token
     where
         P: FnMut(&char) -> bool,
-        F: Fn(String) -> TokenValue,
+        F: Fn(String) -> TokenType,
     {
         let start = self.cursor;
         let lexeme = self.eat(predicate);
         Token {
             start,
             length: lexeme.len(),
-            value: to_value(lexeme),
+            typ: to_value(lexeme),
         }
     }
 
-    fn pluck_token(&mut self, lexeme: char, value: TokenValue) -> Token {
+    fn pluck_token(&mut self, lexeme: char, value: TokenType) -> Token {
         let start = self.cursor;
         self.cursor.inc_for(lexeme);
         Token {
             start,
             length: lexeme.len_utf8(),
-            value: value,
+            typ: value,
         }
     }
 
@@ -218,8 +230,8 @@ impl<'s> Scanner<'s> {
         &mut self,
         lexeme: char,
         modifier: char,
-        value: TokenValue,
-        modified_value: TokenValue,
+        value: TokenType,
+        modified_value: TokenType,
     ) -> Token {
         debug_assert_eq!(self.peek(), Some(lexeme));
         let start = self.cursor;
@@ -237,7 +249,7 @@ impl<'s> Scanner<'s> {
             } else {
                 lexeme.len_utf8()
             },
-            value: if modified { modified_value } else { value },
+            typ: if modified { modified_value } else { value },
         }
     }
 
@@ -248,14 +260,14 @@ impl<'s> Scanner<'s> {
                 let had_found_dot = found_dot.post_mut(|c| *c = true);
                 c.is_ascii_digit() || (*c == '.' && !had_found_dot)
             },
-            |_| TokenValue::Number,
+            |_| TokenType::Number,
         )
     }
 
     fn scan_str(&mut self) -> ScanResult<Token> {
         self.cursor.inc_for('"');
 
-        let token = self.scan_token(|c| c != &'"', |_| TokenValue::String);
+        let token = self.scan_token(|c| c != &'"', |_| TokenType::String);
 
         if self.peek() == Some('"') {
             self.cursor.inc_for('"');
@@ -272,23 +284,23 @@ impl<'s> Scanner<'s> {
         self.scan_token(
             |c| c.is_alphanumeric(),
             |l| match l.as_str() {
-                "and" => TokenValue::And,
-                "class" => TokenValue::Class,
-                "else" => TokenValue::Else,
-                "false" => TokenValue::False,
-                "for" => TokenValue::For,
-                "fun" => TokenValue::Fun,
-                "if" => TokenValue::If,
-                "nil" => TokenValue::Nil,
-                "or" => TokenValue::Or,
-                "print" => TokenValue::Print,
-                "return" => TokenValue::Return,
-                "super" => TokenValue::Super,
-                "this" => TokenValue::This,
-                "true" => TokenValue::True,
-                "var" => TokenValue::Var,
-                "while" => TokenValue::While,
-                _ => TokenValue::Identifier,
+                "and" => TokenType::And,
+                "class" => TokenType::Class,
+                "else" => TokenType::Else,
+                "false" => TokenType::False,
+                "for" => TokenType::For,
+                "fun" => TokenType::Fun,
+                "if" => TokenType::If,
+                "nil" => TokenType::Nil,
+                "or" => TokenType::Or,
+                "print" => TokenType::Print,
+                "return" => TokenType::Return,
+                "super" => TokenType::Super,
+                "this" => TokenType::This,
+                "true" => TokenType::True,
+                "var" => TokenType::Var,
+                "while" => TokenType::While,
+                _ => TokenType::Identifier,
             },
         )
     }
@@ -298,26 +310,26 @@ impl<'s> Scanner<'s> {
         self.eat_whitespace();
         let c = self.peek()?;
         match c {
-            '(' => Some(Ok(self.pluck_token(c, TokenValue::LeftParen))),
-            ')' => Some(Ok(self.pluck_token(c, TokenValue::RightParen))),
-            '{' => Some(Ok(self.pluck_token(c, TokenValue::LeftBrace))),
-            '}' => Some(Ok(self.pluck_token(c, TokenValue::RightBrace))),
-            ';' => Some(Ok(self.pluck_token(c, TokenValue::Semicolon))),
-            ',' => Some(Ok(self.pluck_token(c, TokenValue::Comma))),
-            '.' => Some(Ok(self.pluck_token(c, TokenValue::Dot))),
-            '-' => Some(Ok(self.pluck_token(c, TokenValue::Minus))),
-            '+' => Some(Ok(self.pluck_token(c, TokenValue::Plus))),
-            '*' => Some(Ok(self.pluck_token(c, TokenValue::Star))),
-            '>' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Greater, TokenValue::GreaterEqual))),
-            '<' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Less, TokenValue::LessEqual))),
-            '!' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Bang, TokenValue::BangEqual))),
-            '=' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Equal, TokenValue::EqualEqual))),
+            '(' => Some(Ok(self.pluck_token(c, TokenType::LeftParen))),
+            ')' => Some(Ok(self.pluck_token(c, TokenType::RightParen))),
+            '{' => Some(Ok(self.pluck_token(c, TokenType::LeftBrace))),
+            '}' => Some(Ok(self.pluck_token(c, TokenType::RightBrace))),
+            ';' => Some(Ok(self.pluck_token(c, TokenType::Semicolon))),
+            ',' => Some(Ok(self.pluck_token(c, TokenType::Comma))),
+            '.' => Some(Ok(self.pluck_token(c, TokenType::Dot))),
+            '-' => Some(Ok(self.pluck_token(c, TokenType::Minus))),
+            '+' => Some(Ok(self.pluck_token(c, TokenType::Plus))),
+            '*' => Some(Ok(self.pluck_token(c, TokenType::Star))),
+            '>' => Some(Ok(self.pluck_token_mod(c, '=', TokenType::Greater, TokenType::GreaterEqual))),
+            '<' => Some(Ok(self.pluck_token_mod(c, '=', TokenType::Less, TokenType::LessEqual))),
+            '!' => Some(Ok(self.pluck_token_mod(c, '=', TokenType::Bang, TokenType::BangEqual))),
+            '=' => Some(Ok(self.pluck_token_mod(c, '=', TokenType::Equal, TokenType::EqualEqual))),
             '/' => {
                 if self.peek_next() == Some('/') {
                     self.eat_to_eol();
                     self.scan()
                 } else {
-                    Some(Ok(self.pluck_token(c, TokenValue::Slash)))
+                    Some(Ok(self.pluck_token(c, TokenType::Slash)))
                 }
             },
             '"' => Some(self.scan_str()),
