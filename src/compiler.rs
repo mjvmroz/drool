@@ -18,40 +18,6 @@ pub enum SyntaxError {
     },
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(rustfmt, rustfmt_skip)]
-pub enum Precedence {
-    None        = 0x0,
-    Assignment  = 0x1, // =
-    Or          = 0x2, // or
-    And         = 0x3, // and
-    Equality    = 0x4, // == !=
-    Comparison  = 0x5, // < > <= >=
-    Term        = 0x6, // + -
-    Factor      = 0x7, // * /
-    Unary       = 0x8, // ! -
-    Call        = 0x9, // . ()
-    Primary     = 0xA,
-}
-
-impl Precedence {
-    pub fn inc(&self) -> Precedence {
-        match self {
-            Precedence::None => Precedence::Assignment,
-            Precedence::Assignment => Precedence::Or,
-            Precedence::Or => Precedence::And,
-            Precedence::And => Precedence::Equality,
-            Precedence::Equality => Precedence::Comparison,
-            Precedence::Comparison => Precedence::Term,
-            Precedence::Term => Precedence::Factor,
-            Precedence::Factor => Precedence::Unary,
-            Precedence::Unary => Precedence::Call,
-            Precedence::Call => Precedence::Primary,
-            Precedence::Primary => panic!("bonk that's a dummkopf play"),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum CompileError {
     Scan(ScanError),
@@ -89,18 +55,13 @@ pub struct Parser<'s> {
 }
 
 impl<'s> Parser<'s> {
-    fn get_current_precedence(&self) -> Precedence {
+    fn current_precedence(&self) -> Precedence {
         self.current
             .map_or(Precedence::None, |c| Parser::get_rule(c.value).precedence)
     }
 
-    fn get_current(&self) -> CompileResult<Token> {
-        self.current
-            .ok_or(CompileError::Syntax(SyntaxError::UnexpectedEOF))
-    }
-
     fn get_previous(&self) -> Token {
-        self.previous.expect("get_previous: lateinit would be nice")
+        self.previous.expect("If this is None we've fucky wuckied.")
     }
 
     pub fn parse(src: &'s str) -> CompileResult<Chunk> {
@@ -117,7 +78,7 @@ impl<'s> Parser<'s> {
             .chunk
             .operation(Op::Return, parser.get_previous().start.line);
         if cfg!(debug_assertions) {
-            parser.chunk.disassemble("Pre-exec diassembly");
+            parser.chunk.disassemble("Pre-exec disassembly");
             println!();
         }
         Ok(parser.chunk)
@@ -132,7 +93,9 @@ impl<'s> Parser<'s> {
     }
 
     fn consume(&mut self, expected: TokenValue) -> CompileResult<()> {
-        let cur = self.get_current()?;
+        let cur = self
+            .current
+            .ok_or(CompileError::Syntax(SyntaxError::UnexpectedEOF))?;
         if cur.value == expected {
             self.advance()
         } else {
@@ -163,7 +126,7 @@ impl<'s> Parser<'s> {
 
         self.execute(prefix_instruction)?;
 
-        while up_to <= self.get_current_precedence() {
+        while up_to <= self.current_precedence() {
             self.advance()?;
             let infix_instruction = Parser::get_rule(self.get_previous().value)
                 .infix
@@ -171,6 +134,57 @@ impl<'s> Parser<'s> {
             self.execute(infix_instruction)?;
         }
         Ok(())
+    }
+
+    fn expression(&mut self) -> CompileResult<()> {
+        self.parse_precedence(Precedence::Assignment)?;
+        Ok(())
+    }
+
+    fn number(&mut self) -> CompileResult<()> {
+        match self.get_previous().value {
+            TokenValue::Number => {
+                let s = self
+                    .scanner
+                    .substr(self.get_previous().start, self.get_previous().length);
+                self.chunk.push_const(
+                    Value::Double(s.parse().expect("TODO: this should be an error")),
+                    self.get_previous().start.line,
+                );
+                Ok(())
+            }
+            _ => panic!("TODO: this should be an error"),
+        }
+    }
+
+    fn grouping(&mut self) -> CompileResult<()> {
+        self.expression()?;
+        self.consume(TokenValue::RightParen)
+    }
+
+    fn unary(&mut self) -> CompileResult<()> {
+        let token = self.get_previous();
+        self.parse_precedence(Precedence::Unary)?;
+
+        match token.value {
+            TokenValue::Minus => Ok(self.chunk.operation(Op::Negate, token.start.line)),
+            _ => todo!("unreachable - should be fatal compile error"),
+        }
+    }
+
+    fn binary(&mut self) -> CompileResult<()> {
+        let token = self.get_previous();
+
+        let rule = Parser::get_rule(token.value);
+        self.parse_precedence(rule.precedence.inc())?;
+
+        match token.value {
+            TokenValue::Plus => Ok(self.chunk.operation(Op::Add, token.start.line)),
+            TokenValue::Minus => Ok(self.chunk.operation(Op::Subtract, token.start.line)),
+            TokenValue::Star => Ok(self.chunk.operation(Op::Multiply, token.start.line)),
+            TokenValue::Slash => Ok(self.chunk.operation(Op::Divide, token.start.line)),
+            _ => todo!("unreachable - should be fatal compile error"),
+        }
     }
 
 
@@ -217,58 +231,6 @@ impl<'s> Parser<'s> {
             TokenValue::While =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
         }
     }
-
-    fn expression(&mut self) -> CompileResult<()> {
-        self.parse_precedence(Precedence::Assignment)?;
-        Ok(())
-    }
-
-    fn number(&mut self) -> CompileResult<()> {
-        match self.get_previous().value {
-            TokenValue::Number => {
-                let s = self
-                    .scanner
-                    .substr(self.get_previous().start, self.get_previous().length);
-                println!("number: {}", s);
-                self.chunk.push_const(
-                    Value::Double(s.parse().expect("TODO: this should be an error")),
-                    self.get_previous().start.line,
-                );
-                Ok(())
-            }
-            _ => panic!("TODO: this should be an error"),
-        }
-    }
-
-    fn grouping(&mut self) -> CompileResult<()> {
-        self.expression()?;
-        self.consume(TokenValue::RightParen)
-    }
-
-    fn unary(&mut self) -> CompileResult<()> {
-        let token = self.get_previous();
-        self.parse_precedence(Precedence::Unary)?;
-
-        match token.value {
-            TokenValue::Minus => Ok(self.chunk.operation(Op::Negate, token.start.line)),
-            _ => todo!("unreachable - should be fatal compile error"),
-        }
-    }
-
-    fn binary(&mut self) -> CompileResult<()> {
-        let token = self.get_previous();
-
-        let rule = Parser::get_rule(token.value);
-        self.parse_precedence(rule.precedence.inc())?;
-
-        match token.value {
-            TokenValue::Plus => Ok(self.chunk.operation(Op::Add, token.start.line)),
-            TokenValue::Minus => Ok(self.chunk.operation(Op::Subtract, token.start.line)),
-            TokenValue::Star => Ok(self.chunk.operation(Op::Multiply, token.start.line)),
-            TokenValue::Slash => Ok(self.chunk.operation(Op::Divide, token.start.line)),
-            _ => todo!("unreachable - should be fatal compile error"),
-        }
-    }
 }
 
 trait ScannerExtensions {
@@ -299,4 +261,37 @@ struct ParseRule {
     prefix: Option<ParseInstruction>,
     infix: Option<ParseInstruction>,
     precedence: Precedence,
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Precedence {
+    None,
+    Assignment, // =
+    Or,         // or
+    And,        // and
+    Equality,   // == !=
+    Comparison, // < > <= >=
+    Term,       // + -
+    Factor,     // * /
+    Unary,      // ! -
+    Call,       // . ()
+    Primary,
+}
+
+impl Precedence {
+    pub fn inc(&self) -> Precedence {
+        match self {
+            Precedence::None => Precedence::Assignment,
+            Precedence::Assignment => Precedence::Or,
+            Precedence::Or => Precedence::And,
+            Precedence::And => Precedence::Equality,
+            Precedence::Equality => Precedence::Comparison,
+            Precedence::Comparison => Precedence::Term,
+            Precedence::Term => Precedence::Factor,
+            Precedence::Factor => Precedence::Unary,
+            Precedence::Unary => Precedence::Call,
+            Precedence::Call => Precedence::Primary,
+            Precedence::Primary => panic!("bonk that's a dummkopf play"),
+        }
+    }
 }
