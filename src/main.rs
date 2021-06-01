@@ -9,16 +9,19 @@ use repl::Repl;
 use value::Value as Val;
 use vm::{InterpretResult, VM};
 
+use crate::vm::InterpretError;
+
 mod chunk;
 mod compiler;
 mod data;
 mod fun;
 mod op;
 mod repl;
+mod scanner;
 mod value;
 mod vm;
 
-fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) -> InterpretResult<()> {
+fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) -> InterpretResult<'static, ()> {
     println!();
     println!("========= {:^13} =========", name);
     println!("{:^34}", description);
@@ -29,10 +32,10 @@ fn test(name: &str, description: &str, f: fn(&mut Chunk) -> ()) -> InterpretResu
         println!();
         println!("== {:^27} ==", "Execution:");
     }
-    VM::new(&chunk).run()
+    VM::new(chunk).run().map_err(InterpretError::Runtime)
 }
 
-fn main_example() -> InterpretResult<()> {
+fn main_example() -> InterpretResult<'static, ()> {
     test("MAIN", "Main contents for canonical project", |c| {
         c.push_const(Val::Double(1.2), 123);
         c.push_const(Val::Double(3.4), 123);
@@ -44,7 +47,7 @@ fn main_example() -> InterpretResult<()> {
     })
 }
 
-fn challenge_15_1a() -> InterpretResult<()> {
+fn challenge_15_1a() -> InterpretResult<'static, ()> {
     test("Ch. 15.1a", "(1 * 2 + 3)", |c| {
         c.push_const(Val::Double(1.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -55,7 +58,7 @@ fn challenge_15_1a() -> InterpretResult<()> {
     })
 }
 
-fn challenge_15_1b() -> InterpretResult<()> {
+fn challenge_15_1b() -> InterpretResult<'static, ()> {
     test("Ch. 15.1b", "(1 + 2 * 3)", |c| {
         c.push_const(Val::Double(1.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -66,7 +69,7 @@ fn challenge_15_1b() -> InterpretResult<()> {
     })
 }
 
-fn challenge_15_1c() -> InterpretResult<()> {
+fn challenge_15_1c() -> InterpretResult<'static, ()> {
     test("Ch. 15.1c", "(3 - 2 - 1)", |c| {
         c.push_const(Val::Double(3.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -77,7 +80,7 @@ fn challenge_15_1c() -> InterpretResult<()> {
     })
 }
 
-fn challenge_15_1d() -> InterpretResult<()> {
+fn challenge_15_1d() -> InterpretResult<'static, ()> {
     test("Ch. 15.1d", "(1 + 2 * 3 - 4 / -5)", |c| {
         c.push_const(Val::Double(1.0), 123);
         c.push_const(Val::Double(2.0), 123);
@@ -93,7 +96,7 @@ fn challenge_15_1d() -> InterpretResult<()> {
     })
 }
 
-fn challenge_15_2a() -> InterpretResult<()> {
+fn challenge_15_2a() -> InterpretResult<'static, ()> {
     test("Ch. 15.2a", "(4 - 3 * -2) without NEGATE", |c| {
         c.push_const(Val::Double(4.0), 123);
         c.push_const(Val::Double(3.0), 123);
@@ -106,7 +109,7 @@ fn challenge_15_2a() -> InterpretResult<()> {
     })
 }
 
-fn challenge_15_2b() -> InterpretResult<()> {
+fn challenge_15_2b() -> InterpretResult<'static, ()> {
     test("Ch. 15.2b", "(4 - 3 * -2) without SUBTRACT", |c| {
         c.push_const(Val::Double(4.0), 123);
         c.push_const(Val::Double(3.0), 123);
@@ -121,14 +124,14 @@ fn challenge_15_2b() -> InterpretResult<()> {
 
 fn repl() {
     let chunk = Chunk::of(|c| c.operation(Op::Return, 1));
-    Repl::new(VM::new(&chunk)).start().expect("Oh noes");
+    Repl::new(VM::new(chunk)).start().expect("Oh noes");
 }
 
 fn run_file(filename: &str) -> io::Result<()> {
     let src = std::fs::read_to_string(filename)?;
 
     let chunk = Default::default();
-    let mut vm = VM::new(&chunk);
+    let mut vm = VM::new(chunk);
     let result = vm.interpret(&src);
 
     match result {
@@ -157,7 +160,7 @@ fn switch() -> io::Result<()> {
     }
     Ok(())
 }
-fn run_ch15() -> InterpretResult<()> {
+fn run_ch15() -> InterpretResult<'static, ()> {
     main_example()?;
     challenge_15_1a()?;
     challenge_15_1b()?;

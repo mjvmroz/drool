@@ -1,11 +1,73 @@
-use core::f64;
-use std::{fmt::Display, usize};
+use core::panic;
+use std::mem;
 
-use crate::fun::CopyExtensions;
+use crate::{
+    chunk::Chunk,
+    op::Op,
+    scanner::{CodePosition, ScanError, Scanner, Token, TokenValue},
+    value::Value,
+};
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum SyntaxError {
+    UnexpectedEOF,
+    UnexpectedToken {
+        pos: CodePosition,
+        expected: TokenValue,
+        actual: TokenValue,
+    },
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(rustfmt, rustfmt_skip)]
+pub enum Precedence {
+    None        = 0x0,
+    Assignment  = 0x1, // =
+    Or          = 0x2, // or
+    And         = 0x3, // and
+    Equality    = 0x4, // == !=
+    Comparison  = 0x5, // < > <= >=
+    Term        = 0x6, // + -
+    Factor      = 0x7, // * /
+    Unary       = 0x8, // ! -
+    Call        = 0x9, // . ()
+    Primary     = 0xA,
+}
+
+impl Precedence {
+    pub fn inc(&self) -> Precedence {
+        match self {
+            Precedence::None => Precedence::Assignment,
+            Precedence::Assignment => Precedence::Or,
+            Precedence::Or => Precedence::And,
+            Precedence::And => Precedence::Equality,
+            Precedence::Equality => Precedence::Comparison,
+            Precedence::Comparison => Precedence::Term,
+            Precedence::Term => Precedence::Factor,
+            Precedence::Factor => Precedence::Unary,
+            Precedence::Unary => Precedence::Call,
+            Precedence::Call => Precedence::Primary,
+            Precedence::Primary => panic!("bonk that's a dummkopf play"),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CompileError {
     Scan(ScanError),
+    Syntax(SyntaxError),
+}
+
+impl From<SyntaxError> for CompileError {
+    fn from(e: SyntaxError) -> Self {
+        CompileError::Syntax(e)
+    }
+}
+
+impl From<ScanError> for CompileError {
+    fn from(e: ScanError) -> Self {
+        CompileError::Scan(e)
+    }
 }
 
 type CompileResult<A> = Result<A, CompileError>;
@@ -13,358 +75,228 @@ type CompileResult<A> = Result<A, CompileError>;
 pub struct Compiler {}
 
 impl Compiler {
-    pub fn compile(src: &str) -> CompileResult<()> {
-        let mut line: usize = 0;
-        print!("{:0>4} ", line);
-        for token in Scanner::new(src) {
-            let token = token.map_err(CompileError::Scan)?;
-            if token.start.line > line {
-                println!();
-                print!("{:0>4} ", token.start.line);
-                line = token.start.line;
-            }
-            print!("{} ", token.value);
+    pub fn compile<'s>(src: &'s str) -> CompileResult<Chunk> {
+        Parser::parse(src)
+    }
+}
+
+pub struct Parser<'s> {
+    // TODO: look into peekable
+    scanner: Scanner<'s>,
+    previous: Option<Token>,
+    current: Option<Token>,
+    chunk: Chunk,
+}
+
+impl<'s> Parser<'s> {
+    fn get_current_precedence(&self) -> Precedence {
+        self.current
+            .map_or(Precedence::None, |c| Parser::get_rule(c.value).precedence)
+    }
+
+    fn get_current(&self) -> CompileResult<Token> {
+        self.current
+            .ok_or(CompileError::Syntax(SyntaxError::UnexpectedEOF))
+    }
+
+    fn get_previous(&self) -> Token {
+        self.previous.expect("get_previous: lateinit would be nice")
+    }
+
+    pub fn parse(src: &'s str) -> CompileResult<Chunk> {
+        let mut parser = Parser {
+            chunk: Chunk::default(),
+            scanner: Scanner::new(src),
+            previous: None,
+            current: None,
+        };
+
+        parser.advance()?;
+        parser.expression()?;
+        parser
+            .chunk
+            .operation(Op::Return, parser.get_previous().start.line);
+        if cfg!(debug_assertions) {
+            parser.chunk.disassemble("Pre-exec diassembly");
+            println!();
         }
-        println!();
+        Ok(parser.chunk)
+    }
+
+    fn advance(&mut self) -> CompileResult<()> {
+        let _ = mem::replace(
+            &mut self.previous,
+            mem::replace(&mut self.current, self.scanner.next_token()?),
+        );
         Ok(())
     }
-}
 
-#[derive(Clone, PartialEq, Debug)]
-enum TokenValue {
-    // Width = 1
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    Semicolon,
-    Slash,
-    Star,
-
-    // Width = 2: _[=]
-    Bang,
-    BangEqual,
-    Equal,
-    EqualEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-
-    // Literals
-    Identifier(String),
-    String(String),
-    Number(f64),
-
-    // Keywords
-    And,
-    Class,
-    Else,
-    False,
-    For,
-    Fun,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
-}
-
-impl Display for TokenValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TokenValue::LeftParen => write!(f, "("),
-            TokenValue::RightParen => write!(f, ")"),
-            TokenValue::LeftBrace => write!(f, "{{"),
-            TokenValue::RightBrace => write!(f, "}}"),
-            TokenValue::Comma => write!(f, ","),
-            TokenValue::Dot => write!(f, "."),
-            TokenValue::Minus => write!(f, "-"),
-            TokenValue::Plus => write!(f, "+"),
-            TokenValue::Semicolon => write!(f, ";"),
-            TokenValue::Slash => write!(f, "/"),
-            TokenValue::Star => write!(f, "*"),
-            TokenValue::Bang => write!(f, "!"),
-            TokenValue::BangEqual => write!(f, "!="),
-            TokenValue::Equal => write!(f, "="),
-            TokenValue::EqualEqual => write!(f, "=="),
-            TokenValue::Greater => write!(f, ">"),
-            TokenValue::GreaterEqual => write!(f, ">="),
-            TokenValue::Less => write!(f, "<"),
-            TokenValue::LessEqual => write!(f, "<="),
-            TokenValue::Identifier(s) => write!(f, "{}", s),
-            TokenValue::String(s) => write!(f, "\"{}\"", s),
-            TokenValue::Number(n) => write!(f, "{}", n),
-            TokenValue::And => write!(f, "and"),
-            TokenValue::Class => write!(f, "class"),
-            TokenValue::Else => write!(f, "else"),
-            TokenValue::False => write!(f, "false"),
-            TokenValue::For => write!(f, "for"),
-            TokenValue::Fun => write!(f, "fun"),
-            TokenValue::If => write!(f, "if"),
-            TokenValue::Nil => write!(f, "nil"),
-            TokenValue::Or => write!(f, "or"),
-            TokenValue::Print => write!(f, "print"),
-            TokenValue::Return => write!(f, "return"),
-            TokenValue::Super => write!(f, "super"),
-            TokenValue::This => write!(f, "this"),
-            TokenValue::True => write!(f, "true"),
-            TokenValue::Var => write!(f, "var"),
-            TokenValue::While => write!(f, "while"),
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
-struct CodePosition {
-    pos: usize,
-    line: usize,
-    column: usize,
-}
-
-impl CodePosition {
-    fn inc_for(&mut self, c: char) {
-        let len = c.len_utf8();
-        self.pos += c.len_utf8();
-        if c == '\n' {
-            self.line += 1;
-            self.column = 0;
+    fn consume(&mut self, expected: TokenValue) -> CompileResult<()> {
+        let cur = self.get_current()?;
+        if cur.value == expected {
+            self.advance()
         } else {
-            // This is an approximation because unicode is hard
-            self.column += len;
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Token {
-    value: TokenValue,
-    start: CodePosition,
-    length: usize,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ScanError {
-    value: ScanErrorValue,
-    pos: CodePosition,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ScanErrorValue {
-    UnterminatedString(Token),
-    UnexpectedCharacter(char),
-}
-
-pub type ScanResult<A> = Result<A, ScanError>;
-
-struct Scanner<'s> {
-    src: &'s str,
-    cursor: CodePosition,
-}
-impl<'s> Scanner<'s> {
-    fn new(src: &'s str) -> Scanner<'s> {
-        Scanner {
-            src,
-            cursor: Default::default(),
+            Err(SyntaxError::UnexpectedToken {
+                actual: cur.value,
+                expected,
+                pos: cur.start,
+            }
+            .into())
         }
     }
 
-    fn char_at(&self, index: usize) -> Option<char> {
-        self.src[index..].chars().next()
-    }
-
-    fn peek(&self) -> Option<char> {
-        self.char_at(self.cursor.pos)
-    }
-
-    fn peek_next(&self) -> Option<char> {
-        self.char_at(self.cursor.pos + 1)
-    }
-
-    fn eat<P>(&mut self, mut predicate: P) -> String
-    where
-        P: FnMut(&char) -> bool,
-    {
-        let start = self.cursor;
-        loop {
-            match self.peek().filter(|c| predicate(c)) {
-                Some(c) => self.cursor.inc_for(c),
-                None => {
-                    break;
-                }
-            };
-        }
-        return self.src[start.pos..self.cursor.pos].to_string();
-    }
-
-    fn eat_whitespace(&mut self) {
-        self.eat(|c| c.is_whitespace());
-    }
-
-    fn eat_to_eol(&mut self) {
-        self.eat(|c| *c != '\n');
-    }
-
-    fn scan_token<P, F>(&mut self, predicate: P, to_value: F) -> Token
-    where
-        P: FnMut(&char) -> bool,
-        F: Fn(String) -> TokenValue,
-    {
-        let start = self.cursor;
-        let lexeme = self.eat(predicate);
-        Token {
-            start,
-            length: lexeme.len(),
-            value: to_value(lexeme),
+    fn execute(&mut self, instruction: ParseInstruction) -> CompileResult<()> {
+        match instruction {
+            ParseInstruction::Unary => self.unary(),
+            ParseInstruction::Binary => self.binary(),
+            ParseInstruction::Grouping => self.grouping(),
+            ParseInstruction::Number => self.number(),
         }
     }
 
-    fn pluck_token(&mut self, lexeme: char, value: TokenValue) -> Token {
-        let start = self.cursor;
-        self.cursor.inc_for(lexeme);
-        Token {
-            start,
-            length: lexeme.len_utf8(),
-            value: value,
+    fn parse_precedence(&mut self, up_to: Precedence) -> CompileResult<()> {
+        self.advance()?;
+
+        let prefix_instruction = Parser::get_rule(self.get_previous().value)
+            .prefix
+            .expect("expected prefix expression");
+
+        self.execute(prefix_instruction)?;
+
+        while up_to <= self.get_current_precedence() {
+            self.advance()?;
+            let infix_instruction = Parser::get_rule(self.get_previous().value)
+                .infix
+                .expect("expected infix expression");
+            self.execute(infix_instruction)?;
         }
+        Ok(())
     }
 
-    fn pluck_token_mod(
-        &mut self,
-        lexeme: char,
-        modifier: char,
-        value: TokenValue,
-        modified_value: TokenValue,
-    ) -> Token {
-        debug_assert_eq!(self.peek(), Some(lexeme));
-        let start = self.cursor;
-        self.cursor.inc_for(lexeme);
-
-        let modified = self.peek() == Some(modifier);
-        if modified {
-            self.cursor.inc_for(modifier);
-        }
-
-        Token {
-            start,
-            length: if modified {
-                lexeme.len_utf8() + modifier.len_utf8()
-            } else {
-                lexeme.len_utf8()
-            },
-            value: if modified { modified_value } else { value },
-        }
-    }
-
-    fn scan_number(&mut self) -> Token {
-        let mut found_dot = false;
-        self.scan_token(
-            |c| {
-                let had_found_dot = found_dot.post_mut(|c| *c = true);
-                c.is_ascii_digit() || (*c == '.' && !had_found_dot)
-            },
-            |lexeme| TokenValue::Number(lexeme.parse().unwrap()),
-        )
-    }
-
-    fn scan_str(&mut self) -> ScanResult<Token> {
-        self.cursor.inc_for('"');
-
-        let token = self.scan_token(|c| c != &'"', |lexeme| TokenValue::String(lexeme));
-
-        if self.peek() == Some('"') {
-            self.cursor.inc_for('"');
-            Ok(token)
-        } else {
-            Err(ScanError {
-                pos: token.start,
-                value: ScanErrorValue::UnterminatedString(token),
-            })
-        }
-    }
-
-    fn scan_identifier(&mut self) -> Token {
-        self.scan_token(
-            |c| c.is_alphanumeric(),
-            |l| match l.as_str() {
-                "and" => TokenValue::And,
-                "class" => TokenValue::Class,
-                "else" => TokenValue::Else,
-                "false" => TokenValue::False,
-                "for" => TokenValue::For,
-                "fun" => TokenValue::Fun,
-                "if" => TokenValue::If,
-                "nil" => TokenValue::Nil,
-                "or" => TokenValue::Or,
-                "print" => TokenValue::Print,
-                "return" => TokenValue::Return,
-                "super" => TokenValue::Super,
-                "this" => TokenValue::This,
-                "true" => TokenValue::True,
-                "var" => TokenValue::Var,
-                "while" => TokenValue::While,
-                _ => TokenValue::Identifier(l),
-            },
-        )
-    }
 
     #[cfg_attr(rustfmt, rustfmt_skip)]
-    fn scan(&mut self) -> Option<ScanResult<Token>> {
-        self.eat_whitespace();
-        let c = self.peek()?;
-        match c {
-            '(' => Some(Ok(self.pluck_token(c, TokenValue::LeftParen))),
-            ')' => Some(Ok(self.pluck_token(c, TokenValue::RightParen))),
-            '{' => Some(Ok(self.pluck_token(c, TokenValue::LeftBrace))),
-            '}' => Some(Ok(self.pluck_token(c, TokenValue::RightBrace))),
-            ';' => Some(Ok(self.pluck_token(c, TokenValue::Semicolon))),
-            ',' => Some(Ok(self.pluck_token(c, TokenValue::Comma))),
-            '.' => Some(Ok(self.pluck_token(c, TokenValue::Dot))),
-            '-' => Some(Ok(self.pluck_token(c, TokenValue::Minus))),
-            '+' => Some(Ok(self.pluck_token(c, TokenValue::Plus))),
-            '*' => Some(Ok(self.pluck_token(c, TokenValue::Star))),
-            '>' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Greater, TokenValue::GreaterEqual))),
-            '<' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Less, TokenValue::LessEqual))),
-            '!' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Bang, TokenValue::BangEqual))),
-            '=' => Some(Ok(self.pluck_token_mod(c, '=', TokenValue::Equal, TokenValue::EqualEqual))),
-            '/' => {
-                if self.peek_next() == Some('/') {
-                    self.eat_to_eol();
-                    self.scan()
-                } else {
-                    Some(Ok(self.pluck_token(c, TokenValue::Slash)))
-                }
-            },
-            '"' => Some(self.scan_str()),
-            c => {
-                if c.is_ascii_digit() {
-                    Some(Ok(self.scan_number()))
-                } else if c.is_alphabetic() {
-                    Some(Ok(self.scan_identifier()))
-                } else {
-                    Some(Err(ScanError {
-                        pos: self.cursor,
-                        value: ScanErrorValue::UnexpectedCharacter(c)
-                    }))
-                }
+    fn get_rule(value: TokenValue) -> ParseRule {
+        match value {
+            TokenValue::LeftParen =>    ParseRule { prefix: Some(ParseInstruction::Grouping), infix: None,                           precedence: Precedence::None, },
+            TokenValue::RightParen =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::LeftBrace =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::RightBrace =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Comma =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Dot =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Minus =>        ParseRule { prefix: Some(ParseInstruction::Unary),    infix: Some(ParseInstruction::Binary), precedence: Precedence::Term, },
+            TokenValue::Plus =>         ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Term, },
+            TokenValue::Semicolon =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Slash =>        ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Factor, },
+            TokenValue::Star =>         ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Factor, },
+            TokenValue::Bang =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::BangEqual =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Equal =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::EqualEqual =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Greater =>      ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::GreaterEqual => ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Less =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::LessEqual =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Identifier =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::String =>       ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Number =>       ParseRule { prefix: Some(ParseInstruction::Number),   infix: None,                           precedence: Precedence::None, },
+            TokenValue::And =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Class =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Else =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::False =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::For =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Fun =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::If =>           ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Nil =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Or =>           ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Print =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Return =>       ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Super =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::This =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::True =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Var =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::While =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+        }
+    }
+
+    fn expression(&mut self) -> CompileResult<()> {
+        self.parse_precedence(Precedence::Assignment)?;
+        Ok(())
+    }
+
+    fn number(&mut self) -> CompileResult<()> {
+        match self.get_previous().value {
+            TokenValue::Number => {
+                let s = self
+                    .scanner
+                    .substr(self.get_previous().start, self.get_previous().length);
+                println!("number: {}", s);
+                self.chunk.push_const(
+                    Value::Double(s.parse().expect("TODO: this should be an error")),
+                    self.get_previous().start.line,
+                );
+                Ok(())
             }
+            _ => panic!("TODO: this should be an error"),
+        }
+    }
+
+    fn grouping(&mut self) -> CompileResult<()> {
+        self.expression()?;
+        self.consume(TokenValue::RightParen)
+    }
+
+    fn unary(&mut self) -> CompileResult<()> {
+        let token = self.get_previous();
+        self.parse_precedence(Precedence::Unary)?;
+
+        match token.value {
+            TokenValue::Minus => Ok(self.chunk.operation(Op::Negate, token.start.line)),
+            _ => todo!("unreachable - should be fatal compile error"),
+        }
+    }
+
+    fn binary(&mut self) -> CompileResult<()> {
+        let token = self.get_previous();
+
+        let rule = Parser::get_rule(token.value);
+        self.parse_precedence(rule.precedence.inc())?;
+
+        match token.value {
+            TokenValue::Plus => Ok(self.chunk.operation(Op::Add, token.start.line)),
+            TokenValue::Minus => Ok(self.chunk.operation(Op::Subtract, token.start.line)),
+            TokenValue::Star => Ok(self.chunk.operation(Op::Multiply, token.start.line)),
+            TokenValue::Slash => Ok(self.chunk.operation(Op::Divide, token.start.line)),
+            _ => todo!("unreachable - should be fatal compile error"),
         }
     }
 }
 
-impl<'s> Iterator for Scanner<'s> {
-    type Item = ScanResult<Token>;
+trait ScannerExtensions {
+    fn next_token(&mut self) -> CompileResult<Option<Token>>;
+}
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.scan()
+impl<'s> ScannerExtensions for Scanner<'s> {
+    fn next_token(&mut self) -> CompileResult<Option<Token>> {
+        let maybe_next_or_err = self
+            .map(|r| r.map_err::<CompileError, _>(|e| e.into()))
+            .next();
+
+        match maybe_next_or_err {
+            Some(res) => res.map(Option::Some),
+            None => Ok(None),
+        }
     }
+}
+
+enum ParseInstruction {
+    Unary,
+    Binary,
+    Grouping,
+    Number,
+}
+
+struct ParseRule {
+    prefix: Option<ParseInstruction>,
+    infix: Option<ParseInstruction>,
+    precedence: Precedence,
 }

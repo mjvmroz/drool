@@ -4,11 +4,11 @@ use std::{u8, usize};
 
 struct LineData {
     ops: usize,
-    line: u32,
+    line: usize,
 }
 
 impl LineData {
-    fn new(line: u32) -> LineData {
+    fn new(line: usize) -> LineData {
         LineData { line, ops: 1 }
     }
 
@@ -41,7 +41,7 @@ impl Chunk {
         return &self.values[val_index];
     }
 
-    pub fn operation(&mut self, op: Op, op_line: u32) {
+    pub fn operation(&mut self, op: Op, op_line: usize) {
         op.write_to(&mut self.code);
         match self.lines.last_mut() {
             None => self.lines.push(LineData::new(op_line)),
@@ -57,7 +57,7 @@ impl Chunk {
 
     /// Store and add a retrieve instruction for a constant.
     /// Useful for early tests but I should nuke it some time.
-    pub fn push_const(&mut self, value: Value, line: u32) {
+    pub fn push_const(&mut self, value: Value, line: usize) {
         let val_index = self.values.len();
         self.values.push(value);
         self.operation(Op::Const(val_index), line);
@@ -75,7 +75,7 @@ impl Chunk {
         }
     }
 
-    pub fn get_line(&self, op_index: usize) -> u32 {
+    pub fn get_line(&self, op_index: usize) -> usize {
         let mut op_count = 0_usize;
         for LineData { ops, line } in &self.lines {
             op_count += *ops;
