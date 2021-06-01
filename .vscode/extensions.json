@@ -4,7 +4,9 @@
         "matklad.rust-analyzer",
         "esbenp.prettier-vscode",
         "tonybaloney.vscode-pets",
-        "dberezin.lox-language"
+        "dberezin.lox-language",
+        "vadimcn.vscode-lldb",
+        "ms-vscode.cpptools"
     ],
     "unwantedRecommendations": ["rust-lang.rust"]
 }

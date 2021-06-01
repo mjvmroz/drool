@@ -10,31 +10,46 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SyntaxError {
-    Unstructured {
-        pos: CodePosition,
-        message: String,
-    },
     UnexpectedEOF,
     UnexpectedToken {
         pos: CodePosition,
         expected: TokenValue,
-        description: String,
+        actual: TokenValue,
     },
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(rustfmt, rustfmt_skip)]
 pub enum Precedence {
-    None,
-    Assignment, // =
-    Or,         // or
-    And,        // and
-    Equality,   // == !=
-    Comparison, // < > <= >=
-    Term,       // + -
-    Factor,     // * /
-    Unary,      // ! -
-    Call,       // . ()
-    Primary,
+    None        = 0x0,
+    Assignment  = 0x1, // =
+    Or          = 0x2, // or
+    And         = 0x3, // and
+    Equality    = 0x4, // == !=
+    Comparison  = 0x5, // < > <= >=
+    Term        = 0x6, // + -
+    Factor      = 0x7, // * /
+    Unary       = 0x8, // ! -
+    Call        = 0x9, // . ()
+    Primary     = 0xA,
+}
+
+impl Precedence {
+    pub fn inc(&self) -> Precedence {
+        match self {
+            Precedence::None => Precedence::Assignment,
+            Precedence::Assignment => Precedence::Or,
+            Precedence::Or => Precedence::And,
+            Precedence::And => Precedence::Equality,
+            Precedence::Equality => Precedence::Comparison,
+            Precedence::Comparison => Precedence::Term,
+            Precedence::Term => Precedence::Factor,
+            Precedence::Factor => Precedence::Unary,
+            Precedence::Unary => Precedence::Call,
+            Precedence::Call => Precedence::Primary,
+            Precedence::Primary => panic!("bonk that's a dummkopf play"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -68,66 +83,160 @@ impl Compiler {
 pub struct Parser<'s> {
     // TODO: look into peekable
     scanner: Scanner<'s>,
-    previous: Token,
-    current: Token,
+    previous: Option<Token>,
+    current: Option<Token>,
     chunk: Chunk,
 }
 
 impl<'s> Parser<'s> {
+    fn get_current_precedence(&self) -> Precedence {
+        self.current
+            .map_or(Precedence::None, |c| Parser::get_rule(c.value).precedence)
+    }
+
+    fn get_current(&self) -> CompileResult<Token> {
+        self.current
+            .ok_or(CompileError::Syntax(SyntaxError::UnexpectedEOF))
+    }
+
+    fn get_previous(&self) -> Token {
+        self.previous.expect("get_previous: lateinit would be nice")
+    }
+
     pub fn parse(src: &'s str) -> CompileResult<Chunk> {
-        let chunk = Chunk::default();
-        let mut scanner = Scanner::new(src);
-        let previous = scanner.next_token_or_err()?;
-        let current = scanner.next_token_or_err()?;
         let mut parser = Parser {
-            chunk,
-            scanner,
-            previous,
-            current,
+            chunk: Chunk::default(),
+            scanner: Scanner::new(src),
+            previous: None,
+            current: None,
         };
+
+        parser.advance()?;
         parser.expression()?;
         parser
             .chunk
-            .operation(Op::Return, parser.current.start.line);
+            .operation(Op::Return, parser.get_previous().start.line);
+        if cfg!(debug_assertions) {
+            parser.chunk.disassemble("Pre-exec diassembly");
+            println!();
+        }
         Ok(parser.chunk)
     }
 
     fn advance(&mut self) -> CompileResult<()> {
-        let previous = mem::replace(&mut self.current, self.scanner.next_token_or_err()?);
-        self.previous = previous;
+        let _ = mem::replace(
+            &mut self.previous,
+            mem::replace(&mut self.current, self.scanner.next_token()?),
+        );
         Ok(())
     }
 
     fn consume(&mut self, expected: TokenValue) -> CompileResult<()> {
-        if self.current.value == expected {
+        let cur = self.get_current()?;
+        if cur.value == expected {
             self.advance()
         } else {
             Err(SyntaxError::UnexpectedToken {
-                description: "ruh roh".to_string(),
+                actual: cur.value,
                 expected,
-                pos: self.current.start,
+                pos: cur.start,
             }
             .into())
         }
     }
 
-    fn parsePrecedence(&mut self, precedence: Precedence) -> CompileResult<()> {
-        todo!("uwu")
+    fn execute(&mut self, instruction: ParseInstruction) -> CompileResult<()> {
+        match instruction {
+            ParseInstruction::Unary => self.unary(),
+            ParseInstruction::Binary => self.binary(),
+            ParseInstruction::Grouping => self.grouping(),
+            ParseInstruction::Number => self.number(),
+        }
+    }
+
+    fn parse_precedence(&mut self, up_to: Precedence) -> CompileResult<()> {
+        self.advance()?;
+
+        let prefix_instruction = Parser::get_rule(self.get_previous().value)
+            .prefix
+            .expect("expected prefix expression");
+
+        self.execute(prefix_instruction)?;
+
+        while up_to <= self.get_current_precedence() {
+            self.advance()?;
+            let infix_instruction = Parser::get_rule(self.get_previous().value)
+                .infix
+                .expect("expected infix expression");
+            self.execute(infix_instruction)?;
+        }
+        Ok(())
+    }
+
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    fn get_rule(value: TokenValue) -> ParseRule {
+        match value {
+            TokenValue::LeftParen =>    ParseRule { prefix: Some(ParseInstruction::Grouping), infix: None,                           precedence: Precedence::None, },
+            TokenValue::RightParen =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::LeftBrace =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::RightBrace =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Comma =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Dot =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Minus =>        ParseRule { prefix: Some(ParseInstruction::Unary),    infix: Some(ParseInstruction::Binary), precedence: Precedence::Term, },
+            TokenValue::Plus =>         ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Term, },
+            TokenValue::Semicolon =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Slash =>        ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Factor, },
+            TokenValue::Star =>         ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Factor, },
+            TokenValue::Bang =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::BangEqual =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Equal =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::EqualEqual =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Greater =>      ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::GreaterEqual => ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Less =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::LessEqual =>    ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Identifier =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::String =>       ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Number =>       ParseRule { prefix: Some(ParseInstruction::Number),   infix: None,                           precedence: Precedence::None, },
+            TokenValue::And =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Class =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Else =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::False =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::For =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Fun =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::If =>           ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Nil =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Or =>           ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Print =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Return =>       ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Super =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::This =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::True =>         ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::Var =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+            TokenValue::While =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None, },
+        }
     }
 
     fn expression(&mut self) -> CompileResult<()> {
-        self.parsePrecedence(Precedence::Assignment)?;
+        self.parse_precedence(Precedence::Assignment)?;
         Ok(())
     }
 
     fn number(&mut self) -> CompileResult<()> {
-        match self.previous.value {
-            TokenValue::Number(n) => {
-                self.chunk
-                    .push_const(Value::Double(n), self.previous.start.line);
+        match self.get_previous().value {
+            TokenValue::Number => {
+                let s = self
+                    .scanner
+                    .substr(self.get_previous().start, self.get_previous().length);
+                println!("number: {}", s);
+                self.chunk.push_const(
+                    Value::Double(s.parse().expect("TODO: this should be an error")),
+                    self.get_previous().start.line,
+                );
                 Ok(())
             }
-            _ => panic!("TODO: this should be a result error"),
+            _ => panic!("TODO: this should be an error"),
         }
     }
 
@@ -137,25 +246,33 @@ impl<'s> Parser<'s> {
     }
 
     fn unary(&mut self) -> CompileResult<()> {
-        let (op, line) = self.previous.as_unary_op().expect("todo uwu");
-        self.parsePrecedence(Precedence::Unary)?;
+        let token = self.get_previous();
+        self.parse_precedence(Precedence::Unary)?;
 
-        Ok(self.chunk.operation(op, line))
+        match token.value {
+            TokenValue::Minus => Ok(self.chunk.operation(Op::Negate, token.start.line)),
+            _ => todo!("unreachable - should be fatal compile error"),
+        }
     }
 
     fn binary(&mut self) -> CompileResult<()> {
-        let (op, line) = self.previous.as_binary_op().expect("todo uwu");
-        todo!("current")
+        let token = self.get_previous();
+
+        let rule = Parser::get_rule(token.value);
+        self.parse_precedence(rule.precedence.inc())?;
+
+        match token.value {
+            TokenValue::Plus => Ok(self.chunk.operation(Op::Add, token.start.line)),
+            TokenValue::Minus => Ok(self.chunk.operation(Op::Subtract, token.start.line)),
+            TokenValue::Star => Ok(self.chunk.operation(Op::Multiply, token.start.line)),
+            TokenValue::Slash => Ok(self.chunk.operation(Op::Divide, token.start.line)),
+            _ => todo!("unreachable - should be fatal compile error"),
+        }
     }
 }
 
 trait ScannerExtensions {
     fn next_token(&mut self) -> CompileResult<Option<Token>>;
-
-    fn next_token_or_err(&mut self) -> CompileResult<Token> {
-        let maybe_token = self.next_token()?;
-        maybe_token.ok_or_else(|| CompileError::Syntax(SyntaxError::UnexpectedEOF))
-    }
 }
 
 impl<'s> ScannerExtensions for Scanner<'s> {
@@ -169,4 +286,17 @@ impl<'s> ScannerExtensions for Scanner<'s> {
             None => Ok(None),
         }
     }
+}
+
+enum ParseInstruction {
+    Unary,
+    Binary,
+    Grouping,
+    Number,
+}
+
+struct ParseRule {
+    prefix: Option<ParseInstruction>,
+    infix: Option<ParseInstruction>,
+    precedence: Precedence,
 }

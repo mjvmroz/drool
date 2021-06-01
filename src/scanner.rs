@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use crate::{fun::CopyExtensions, op::Op};
+use crate::fun::CopyExtensions;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TokenValue {
     // Width = 1
     LeftParen,
@@ -28,9 +28,9 @@ pub enum TokenValue {
     LessEqual,
 
     // Literals
-    Identifier(String),
-    String(String),
-    Number(f64),
+    Identifier,
+    String,
+    Number,
 
     // Keywords
     And,
@@ -73,9 +73,9 @@ impl Display for TokenValue {
             TokenValue::GreaterEqual => write!(f, ">="),
             TokenValue::Less => write!(f, "<"),
             TokenValue::LessEqual => write!(f, "<="),
-            TokenValue::Identifier(s) => write!(f, "{}", s),
-            TokenValue::String(s) => write!(f, "\"{}\"", s),
-            TokenValue::Number(n) => write!(f, "{}", n),
+            TokenValue::Identifier => write!(f, "<identifier>"),
+            TokenValue::String => write!(f, "\"<string literal>\""),
+            TokenValue::Number => write!(f, "<numeric literal>"),
             TokenValue::And => write!(f, "and"),
             TokenValue::Class => write!(f, "class"),
             TokenValue::Else => write!(f, "else"),
@@ -117,30 +117,11 @@ impl CodePosition {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Token {
     pub value: TokenValue,
     pub start: CodePosition,
     pub length: usize,
-}
-
-impl Token {
-    pub fn as_unary_op(&self) -> Option<(Op, usize)> {
-        match self.value {
-            TokenValue::Minus => Some((Op::Negate, self.start.line)),
-            _ => None,
-        }
-    }
-
-    pub fn as_binary_op(&self) -> Option<(Op, usize)> {
-        match self.value {
-            TokenValue::Plus => Some((Op::Add, self.start.line)),
-            TokenValue::Minus => Some((Op::Subtract, self.start.line)),
-            TokenValue::Star => Some((Op::Multiply, self.start.line)),
-            TokenValue::Slash => Some((Op::Divide, self.start.line)),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -167,6 +148,10 @@ impl<'s> Scanner<'s> {
             src,
             cursor: Default::default(),
         }
+    }
+
+    pub fn substr(&self, pos: CodePosition, length: usize) -> String {
+        self.src[pos.pos..pos.pos + length].to_string()
     }
 
     fn char_at(&self, index: usize) -> Option<char> {
@@ -263,14 +248,14 @@ impl<'s> Scanner<'s> {
                 let had_found_dot = found_dot.post_mut(|c| *c = true);
                 c.is_ascii_digit() || (*c == '.' && !had_found_dot)
             },
-            |lexeme| TokenValue::Number(lexeme.parse().unwrap()),
+            |_| TokenValue::Number,
         )
     }
 
     fn scan_str(&mut self) -> ScanResult<Token> {
         self.cursor.inc_for('"');
 
-        let token = self.scan_token(|c| c != &'"', |lexeme| TokenValue::String(lexeme));
+        let token = self.scan_token(|c| c != &'"', |_| TokenValue::String);
 
         if self.peek() == Some('"') {
             self.cursor.inc_for('"');
@@ -303,7 +288,7 @@ impl<'s> Scanner<'s> {
                 "true" => TokenValue::True,
                 "var" => TokenValue::Var,
                 "while" => TokenValue::While,
-                _ => TokenValue::Identifier(l),
+                _ => TokenValue::Identifier,
             },
         )
     }
