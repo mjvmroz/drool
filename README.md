@@ -1,4 +1,4 @@
-# drool 🤤
+# ドルール (drool) 🤤
 
 A work-in-progress [lox 🐟](https://craftinginterpreters.com/) bytecode interpreter, written in Rust 🦀.
 
