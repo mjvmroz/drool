@@ -11,7 +11,6 @@ use vm::VM;
 mod chunk;
 mod compiler;
 mod data;
-mod fun;
 mod op;
 mod repl;
 mod scanner;

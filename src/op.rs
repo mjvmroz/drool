@@ -9,7 +9,7 @@ use std::{convert::TryInto, u8, usize};
 // So I'm doing it manually. Yay.
 #[non_exhaustive]
 pub struct OpCode {}
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 impl OpCode {
     pub const RETURN: u8       = 0x00;
     pub const CONST_SMOL: u8   = 0x01;
@@ -19,6 +19,13 @@ impl OpCode {
     pub const SUBTRACT: u8     = 0x05;
     pub const MULTIPLY: u8     = 0x06;
     pub const DIVIDE: u8       = 0x07;
+    pub const NIL: u8          = 0x08;
+    pub const TRUE: u8         = 0x09;
+    pub const FALSE: u8        = 0x0A;
+    pub const NOT: u8          = 0x0B;
+    pub const EQUAL: u8        = 0x0C;
+    pub const GREATER: u8      = 0x0D;
+    pub const LESS: u8         = 0x0E;
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -37,6 +44,13 @@ pub enum Op {
     Subtract,        // 0x05
     Multiply,        // 0x06
     Divide,          // 0x07
+    Nil,             // 0x08
+    True,            // 0x09
+    False,           // 0x0A
+    Not,             // 0x0B
+    Equal,           // 0x0C
+    Greater,         // 0x0D
+    Less,            // 0x0E
 }
 
 impl Op {
@@ -54,6 +68,13 @@ impl Op {
             OpCode::SUBTRACT => Op::Subtract,
             OpCode::MULTIPLY => Op::Multiply,
             OpCode::DIVIDE => Op::Divide,
+            OpCode::NIL => Op::Nil,
+            OpCode::TRUE => Op::True,
+            OpCode::FALSE => Op::False,
+            OpCode::NOT => Op::Not,
+            OpCode::EQUAL => Op::Equal,
+            OpCode::GREATER => Op::Greater,
+            OpCode::LESS => Op::Less,
             _ => panic!("Corrupt bytecode"),
         };
         *ptr = ptr.add(op.cost());
@@ -76,6 +97,13 @@ impl Op {
             Op::Subtract => buffer.push(OpCode::SUBTRACT),
             Op::Multiply => buffer.push(OpCode::MULTIPLY),
             Op::Divide => buffer.push(OpCode::DIVIDE),
+            Op::Nil => buffer.push(OpCode::NIL),
+            Op::True => buffer.push(OpCode::TRUE),
+            Op::False => buffer.push(OpCode::FALSE),
+            Op::Not => buffer.push(OpCode::NOT),
+            Op::Equal => buffer.push(OpCode::EQUAL),
+            Op::Greater => buffer.push(OpCode::GREATER),
+            Op::Less => buffer.push(OpCode::LESS),
         }
     }
 
@@ -91,6 +119,13 @@ impl Op {
             Op::Subtract => 1,
             Op::Multiply => 1,
             Op::Divide => 1,
+            Op::Nil => 1,
+            Op::True => 1,
+            Op::False => 1,
+            Op::Not => 1,
+            Op::Equal => 1,
+            Op::Greater => 1,
+            Op::Less => 1,
         }
     }
 
@@ -104,6 +139,13 @@ impl Op {
             Op::Subtract => "OP_SUBTRACT",
             Op::Multiply => "OP_MULTIPLY",
             Op::Divide => "OP_DIVIDE",
+            Op::Nil => "OP_NIL",
+            Op::True => "OP_TRUE",
+            Op::False => "OP_FALSE",
+            Op::Not => "OP_NOT",
+            Op::Equal => "OP_EQUAL",
+            Op::Greater => "OP_GREATER",
+            Op::Less => "OP_LESS",
         }
     }
 
@@ -129,6 +171,13 @@ impl Op {
             Self::Subtract => self.simple_instruction(),
             Self::Multiply => self.simple_instruction(),
             Self::Divide => self.simple_instruction(),
+            Self::Nil => self.simple_instruction(),
+            Self::True => self.simple_instruction(),
+            Self::False => self.simple_instruction(),
+            Self::Not => self.simple_instruction(),
+            Self::Equal => self.simple_instruction(),
+            Self::Greater => self.simple_instruction(),
+            Self::Less => self.simple_instruction(),
         }
     }
 
@@ -180,7 +229,7 @@ mod tests {
         where
             G: Gen,
         {
-            let n = g.next_u32() & 0x07;
+            let n = g.next_u32() & 0x0A;
             match n {
                 0x00 => Op::Return,
                 0x01 => {
@@ -196,6 +245,13 @@ mod tests {
                 0x05 => Op::Subtract,
                 0x06 => Op::Multiply,
                 0x07 => Op::Divide,
+                0x08 => Op::Nil,
+                0x09 => Op::True,
+                0x0A => Op::False,
+                0x0B => Op::Not,
+                0x0C => Op::Equal,
+                0x0D => Op::Greater,
+                0x0E => Op::Less,
                 _ => {
                     panic!("Did you mask correctly? I'm guessing you didn't mask correctly. :bonk:")
                 }

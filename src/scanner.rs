@@ -1,7 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use crate::fun::CopyExtensions;
-
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TokenType {
     // Width = 1
@@ -257,8 +255,12 @@ impl<'s> Scanner<'s> {
         let mut found_dot = false;
         self.scan_token(
             |c| {
-                let had_found_dot = found_dot.post_mut(|c| *c = true);
-                c.is_ascii_digit() || (*c == '.' && !had_found_dot)
+                let is_dot = *c == '.';
+                let res = c.is_ascii_digit() || (is_dot && !found_dot);
+                if is_dot {
+                    found_dot = true;
+                }
+                res
             },
             |_| TokenType::Number,
         )
@@ -305,7 +307,7 @@ impl<'s> Scanner<'s> {
         )
     }
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[rustfmt::skip]
     fn scan(&mut self) -> Option<ScanResult<Token>> {
         self.eat_whitespace();
         let c = self.peek()?;
