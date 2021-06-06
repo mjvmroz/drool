@@ -30,7 +30,7 @@ impl Display for Value {
         match self {
             Self::Double(value) => value.fmt(f),
             Self::Bool(value) => value.fmt(f),
-            Self::Nil => write!(f, "Nil"),
+            Self::Nil => write!(f, "nil"),
         }
     }
 }
@@ -38,27 +38,19 @@ impl Display for Value {
 #[allow(dead_code)]
 impl Value {
     #[inline]
-    pub fn negate(&self) -> TypeResult<Value> {
-        match self {
+    pub fn negate(val: Value) -> TypeResult<Value> {
+        match val {
             Self::Double(double) => Ok(Self::Double(-double)),
-            v => Err(TypeError::NotANumber(*v)),
+            _ => Err(TypeError::NotANumber(val)),
         }
     }
 
     #[inline]
-    pub fn negate_mut(&mut self) -> TypeResult<()> {
-        match self {
-            Self::Double(double) => Ok(*double = -(*double)),
-            v => Err(TypeError::NotANumber(*v)),
-        }
-    }
-
-    #[inline]
-    pub fn not_mut(&mut self) -> TypeResult<()> {
-        match self {
-            Self::Bool(bool) => Ok(*bool = !(*bool)),
-            v @ Self::Nil => Ok(*v = Value::Bool(true)),
-            v => Err(TypeError::NotBoolLike(*v)),
+    pub fn not(val: Value) -> TypeResult<Value> {
+        match val {
+            Self::Bool(bool) => Ok(Value::Bool(!bool)),
+            Self::Nil => Ok(Value::Bool(true)),
+            _ => Err(TypeError::NotBoolLike(val)),
         }
     }
 
@@ -71,14 +63,6 @@ impl Value {
     }
 
     #[inline]
-    pub fn add_mut(a: &mut Value, b: Value) -> TypeResult<()> {
-        match (a, b) {
-            (Self::Double(a), Self::Double(b)) => Ok(*a += b),
-            vw => Err(TypeError::NotANumber(*vw.0)),
-        }
-    }
-
-    #[inline]
     pub fn subtract(a: Value, b: Value) -> TypeResult<Value> {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a - b)),
@@ -87,26 +71,10 @@ impl Value {
     }
 
     #[inline]
-    pub fn subtract_mut(a: &mut Value, b: Value) -> TypeResult<()> {
-        match (a, b) {
-            (Self::Double(a), Self::Double(b)) => Ok(*a -= b),
-            vw => Err(TypeError::NotANumber(*vw.0)),
-        }
-    }
-
-    #[inline]
     pub fn multiply(a: Value, b: Value) -> TypeResult<Value> {
         match (a, b) {
             (Self::Double(a), Self::Double(b)) => Ok(Self::Double(a * b)),
             vw => Err(TypeError::NotANumber(vw.0)),
-        }
-    }
-
-    #[inline]
-    pub fn multiply_mut(a: &mut Value, b: Value) -> TypeResult<()> {
-        match (a, b) {
-            (Self::Double(a), Self::Double(b)) => Ok(*a *= b),
-            vw => Err(TypeError::NotANumber(*vw.0)),
         }
     }
 

@@ -44,7 +44,6 @@ pub type InterpretResult<'s, A> = Result<A, InterpretError>;
 
 pub type RunResult<A> = Result<A, RuntimeError>;
 
-#[allow(dead_code)]
 impl VM {
     pub fn new(chunk: Chunk) -> VM {
         VM {
@@ -61,8 +60,11 @@ impl VM {
     }
 
     #[inline]
-    fn op_unary_mut(&mut self, op: fn(&mut Value) -> TypeResult<()>) -> RunResult<()> {
-        op(self.stack.peek_mut()?).map_err(TypeError::into)
+    fn op_unary(&mut self, op: fn(Value) -> TypeResult<Value>) -> RunResult<()> {
+        let top = self.stack.peek()?;
+        let res = op(*top)?;
+        self.stack.pop()?;
+        Ok(self.stack.push(res))
     }
 
     #[inline]
@@ -79,19 +81,6 @@ impl VM {
                 Err(e)
             }
         }
-    }
-
-    #[inline]
-    fn op_binary_mut(&mut self, op: fn(&mut Value, Value) -> TypeResult<()>) -> RunResult<()> {
-        let b = self.stack.pop()?;
-        let a = self.stack.peek_mut()?;
-        let res = op(a, b).map_err(TypeError::into);
-        // peek_mut(n) has challenging implications in Rust, so I'm doing this instead. I'm not sure I'm sold
-        // on the idea that we need to leave the stack intact in this case, but I'm following along for now.
-        if res.is_err() {
-            self.stack.push(b);
-        }
-        return res;
     }
 
     pub fn run(&mut self) -> RunResult<()> {
@@ -127,15 +116,15 @@ impl VM {
                         let value = self.chunk.get_constant(val_index.into());
                         self.stack.push(*value);
                     }
-                    Op::Negate => self.op_unary_mut(Value::negate_mut)?,
-                    Op::Add => self.op_binary_mut(Value::add_mut)?,
-                    Op::Subtract => self.op_binary_mut(Value::subtract_mut)?,
-                    Op::Multiply => self.op_binary_mut(Value::multiply_mut)?,
-                    Op::Divide => self.op_binary_mut(Value::divide_mut)?,
+                    Op::Negate => self.op_unary(Value::negate)?,
+                    Op::Add => self.op_binary(Value::add)?,
+                    Op::Subtract => self.op_binary(Value::subtract)?,
+                    Op::Multiply => self.op_binary(Value::multiply)?,
+                    Op::Divide => self.op_binary(Value::divide)?,
                     Op::Nil => self.stack.push(Value::Nil),
                     Op::True => self.stack.push(Value::Bool(true)),
                     Op::False => self.stack.push(Value::Bool(false)),
-                    Op::Not => self.op_unary_mut(Value::not_mut)?,
+                    Op::Not => self.op_unary(Value::not)?,
                     Op::Equal => self.op_binary(Value::equal)?,
                     Op::Greater => self.op_binary(Value::greater)?,
                     Op::Less => self.op_binary(Value::less)?,
@@ -164,8 +153,8 @@ impl Stack {
     }
 
     #[inline]
-    fn peek_mut(&mut self) -> RunResult<&mut Value> {
-        self.0.last_mut().ok_or(RuntimeError::StackUnderflow)
+    fn peek(&self) -> RunResult<&Value> {
+        self.0.last().ok_or(RuntimeError::StackUnderflow)
     }
 }
 impl Display for Stack {
