@@ -283,7 +283,7 @@ trait ScannerExtensions {
 impl<'s> ScannerExtensions for Scanner<'s> {
     fn next_token(&mut self) -> CompileResult<Option<Token>> {
         let maybe_next_or_err = self
-            .map(|r| r.map_err::<CompileError, _>(|e| e.into()))
+            .map(|r| r.map_err::<CompileError, _>(ScanError::into))
             .next();
 
         match maybe_next_or_err {
