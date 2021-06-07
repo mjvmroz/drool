@@ -293,7 +293,6 @@ impl<'s> ScannerExtensions for Scanner<'s> {
     }
 }
 
-// fn(&mut Compiler) -> Result<(), CompileError>
 enum ParseInstruction {
     Unary,
     Binary,
