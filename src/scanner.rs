@@ -149,7 +149,7 @@ pub enum ScanErrorValue {
 pub type ScanResult<A> = Result<A, ScanError>;
 
 pub struct Scanner<'s> {
-    src: &'s str,
+    pub src: &'s str,
     cursor: CodePosition,
 }
 impl<'s> Scanner<'s> {

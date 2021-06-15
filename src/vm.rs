@@ -1,6 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
+use broom::Heap;
+
 use crate::compiler::Compiler;
+use crate::value::Object;
 use crate::value::TypeError;
 use crate::value::TypeResult;
 use crate::{compiler::CompileError, op::Op};
@@ -37,6 +40,7 @@ pub enum InterpretError {
 
 pub struct VM {
     chunk: Chunk,
+    heap: Heap<Object>,
     stack: Stack,
 }
 
@@ -49,29 +53,34 @@ impl VM {
         VM {
             chunk,
             stack: Stack::default(),
+            heap: Heap::new(),
         }
     }
 
     pub fn interpret<'s>(&mut self, src: &'s str) -> InterpretResult<'s, ()> {
-        let chunk = Compiler::compile(&src).map_err(InterpretError::Compile)?;
+        let (chunk, heap) = Compiler::compile(&src).map_err(InterpretError::Compile)?;
 
         self.chunk = chunk;
+        self.heap = heap;
         self.run().map_err(InterpretError::Runtime)
     }
 
     #[inline]
-    fn op_unary(&mut self, op: fn(Value) -> TypeResult<Value>) -> RunResult<()> {
+    fn op_unary(&mut self, op: fn(&mut Heap<Object>, Value) -> TypeResult<Value>) -> RunResult<()> {
         let top = self.stack.peek()?;
-        let res = op(*top)?;
+        let res = op(&mut self.heap, *top)?;
         self.stack.pop()?;
         Ok(self.stack.push(res))
     }
 
     #[inline]
-    fn op_binary(&mut self, op: fn(Value, Value) -> TypeResult<Value>) -> RunResult<()> {
+    fn op_binary(
+        &mut self,
+        op: fn(&mut Heap<Object>, Value, Value) -> TypeResult<Value>,
+    ) -> RunResult<()> {
         let b = self.stack.pop()?;
         let a = self.stack.pop()?;
-        let res = op(a, b).map_err(TypeError::into);
+        let res = op(&mut self.heap, a, b).map_err(TypeError::into);
 
         match res {
             Ok(v) => Ok(self.stack.push(v)),

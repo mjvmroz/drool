@@ -1,11 +1,13 @@
 use core::panic;
 use std::mem;
 
+use broom::Heap;
+
 use crate::{
     chunk::Chunk,
     op::Op,
     scanner::{CodePosition, ScanError, Scanner, Token, TokenType},
-    value::Value,
+    value::{Object, Value},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -47,6 +49,7 @@ pub struct Compiler<'s> {
     previous: Option<Token>,
     current: Option<Token>,
     chunk: Chunk,
+    heap: Heap<Object>,
 }
 
 impl<'s> Compiler<'s> {
@@ -56,10 +59,11 @@ impl<'s> Compiler<'s> {
             scanner: Scanner::new(src),
             previous: None,
             current: None,
+            heap: Heap::new(),
         }
     }
 
-    pub fn compile(src: &'s str) -> CompileResult<Chunk> {
+    pub fn compile(src: &'s str) -> CompileResult<(Chunk, Heap<Object>)> {
         let mut compiler = Compiler::new(src);
 
         compiler.advance()?;
@@ -71,7 +75,7 @@ impl<'s> Compiler<'s> {
             compiler.chunk.disassemble("Pre-exec disassembly");
             println!();
         }
-        Ok(compiler.chunk)
+        Ok((compiler.chunk, compiler.heap))
     }
 
     fn current_precedence(&self) -> Precedence {
@@ -117,6 +121,7 @@ impl<'s> Compiler<'s> {
             ParseInstruction::Grouping => self.grouping(),
             ParseInstruction::Number   => self.number(),
             ParseInstruction::Literal  => self.literal(),
+            ParseInstruction::String   => self.string(),
         }
     }
 
@@ -230,6 +235,20 @@ impl<'s> Compiler<'s> {
         }
     }
 
+    fn string(&mut self) -> CompileResult<()> {
+        let token = self.get_previous()?;
+        match token.typ {
+            TokenType::String => {
+                let obj = Object::Str(self.scanner.src[token.start.pos..][..token.length].into());
+                let handle = self.heap.insert_temp(obj);
+                Ok(self.chunk.push_const(Value::Obj(handle), token.start.line))
+            }
+            _ => Err(CompileError::Internal(format!(
+                "Unhandled string literal: {}",
+                token
+            ))),
+        }
+    }
 
     #[rustfmt::skip]
     fn get_rule(value: TokenType) -> ParseRule {
@@ -254,7 +273,7 @@ impl<'s> Compiler<'s> {
             TokenType::Less =>         ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Comparison, },
             TokenType::LessEqual =>    ParseRule { prefix: None,                             infix: Some(ParseInstruction::Binary), precedence: Precedence::Comparison, },
             TokenType::Identifier =>   ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None,       },
-            TokenType::String =>       ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None,       },
+            TokenType::String =>       ParseRule { prefix: Some(ParseInstruction::String),   infix: None,                           precedence: Precedence::None,       },
             TokenType::Number =>       ParseRule { prefix: Some(ParseInstruction::Number),   infix: None,                           precedence: Precedence::None,       },
             TokenType::And =>          ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None,       },
             TokenType::Class =>        ParseRule { prefix: None,                             infix: None,                           precedence: Precedence::None,       },
@@ -299,6 +318,7 @@ enum ParseInstruction {
     Grouping,
     Number,
     Literal,
+    String,
 }
 
 struct ParseRule {
