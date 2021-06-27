@@ -1,0 +1,5 @@
+// These empty prints should produce compiler errors, but should
+// not prevent execution of the rest of the program.
+print;print;print;print;
+print "Hello " + "world!";
+print 1337;

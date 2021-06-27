@@ -26,6 +26,8 @@ impl OpCode {
     pub const EQUAL: u8        = 0x0C;
     pub const GREATER: u8      = 0x0D;
     pub const LESS: u8         = 0x0E;
+    pub const PRINT: u8        = 0x0F;
+    pub const POP: u8          = 0x10;
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -51,6 +53,8 @@ pub enum Op {
     Equal,           // 0x0C
     Greater,         // 0x0D
     Less,            // 0x0E
+    Print,           // 0x0F
+    Pop,             // 0x10
 }
 
 impl Op {
@@ -75,6 +79,8 @@ impl Op {
             OpCode::EQUAL => Op::Equal,
             OpCode::GREATER => Op::Greater,
             OpCode::LESS => Op::Less,
+            OpCode::PRINT => Op::Print,
+            OpCode::POP => Op::Pop,
             _ => panic!("Corrupt bytecode"),
         };
         *ptr = ptr.add(op.cost());
@@ -104,6 +110,8 @@ impl Op {
             Op::Equal => buffer.push(OpCode::EQUAL),
             Op::Greater => buffer.push(OpCode::GREATER),
             Op::Less => buffer.push(OpCode::LESS),
+            Op::Print => buffer.push(OpCode::PRINT),
+            Op::Pop => buffer.push(OpCode::POP),
         }
     }
 
@@ -126,6 +134,8 @@ impl Op {
             Op::Equal => 1,
             Op::Greater => 1,
             Op::Less => 1,
+            Op::Print => 1,
+            Op::Pop => 1,
         }
     }
 
@@ -146,6 +156,8 @@ impl Op {
             Op::Equal => "OP_EQUAL",
             Op::Greater => "OP_GREATER",
             Op::Less => "OP_LESS",
+            Op::Print => "OP_PRINT",
+            Op::Pop => "OP_POP",
         }
     }
 
@@ -178,6 +190,8 @@ impl Op {
             Self::Equal => self.simple_instruction(),
             Self::Greater => self.simple_instruction(),
             Self::Less => self.simple_instruction(),
+            Self::Print => self.simple_instruction(),
+            Self::Pop => self.simple_instruction(),
         }
     }
 
@@ -229,7 +243,7 @@ mod tests {
         where
             G: Gen,
         {
-            let n = g.next_u32() & 0x0A;
+            let n = g.next_u32() & 0x10;
             match n {
                 0x00 => Op::Return,
                 0x01 => {
@@ -252,6 +266,8 @@ mod tests {
                 0x0C => Op::Equal,
                 0x0D => Op::Greater,
                 0x0E => Op::Less,
+                0x0F => Op::Print,
+                0x10 => Op::Pop,
                 _ => {
                     panic!("Did you mask correctly? I'm guessing you didn't mask correctly. :bonk:")
                 }

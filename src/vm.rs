@@ -66,6 +66,13 @@ impl VM {
     }
 
     #[inline]
+    fn eff(&mut self, op: fn(&mut Heap<Object>, Value) -> TypeResult<()>) -> RunResult<()> {
+        let val = self.stack.pop()?;
+        op(&mut self.heap, val)?;
+        Ok(())
+    }
+
+    #[inline]
     fn op_unary(&mut self, op: fn(&mut Heap<Object>, Value) -> TypeResult<Value>) -> RunResult<()> {
         let top = self.stack.peek()?;
         let res = op(&mut self.heap, *top)?;
@@ -114,7 +121,6 @@ impl VM {
 
                 match op {
                     Op::Return => {
-                        println!("{}", self.stack.pop()?);
                         return Ok(());
                     }
                     Op::ConstSmol(val_index) => {
@@ -137,6 +143,10 @@ impl VM {
                     Op::Equal => self.op_binary(Value::equal)?,
                     Op::Greater => self.op_binary(Value::greater)?,
                     Op::Less => self.op_binary(Value::less)?,
+                    Op::Print => self.eff(|_heap, val| Ok(println!("{}", val)))?,
+                    Op::Pop => {
+                        self.stack.pop()?;
+                    }
                 }
             }
         }

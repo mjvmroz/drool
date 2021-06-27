@@ -67,7 +67,9 @@ impl<'s> Compiler<'s> {
         let mut compiler = Compiler::new(src);
 
         compiler.advance()?;
-        compiler.expression()?;
+        while compiler.current != None {
+            compiler.declaration()?;
+        }
         compiler
             .chunk
             .operation(Op::Return, compiler.get_previous()?.start.line);
@@ -146,6 +148,66 @@ impl<'s> Compiler<'s> {
 
     fn expression(&mut self) -> CompileResult<()> {
         self.parse_precedence(Precedence::Assignment)
+    }
+
+    fn declaration(&mut self) -> CompileResult<()> {
+        let result = self.statement();
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                println!("Compile error: {:?}", e);
+                while self.current != None {
+                    if self.get_previous()?.typ == TokenType::Semicolon {
+                        return Ok(());
+                    }
+                    match self.cur_typ()? {
+                        TokenType::Class
+                        | TokenType::Fun
+                        | TokenType::Var
+                        | TokenType::For
+                        | TokenType::If
+                        | TokenType::While
+                        | TokenType::Print
+                        | TokenType::Return => return Ok(()),
+                        _ => {}
+                    }
+                    self.advance()?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn cur_typ(&self) -> CompileResult<TokenType> {
+        self.current
+            .map(|t| t.typ)
+            .ok_or(SyntaxError::UnexpectedEOF.into())
+    }
+
+    fn print_statement(&mut self) -> CompileResult<()> {
+        let pos = self.get_previous()?.start;
+        self.expression()?;
+        self.consume(TokenType::Semicolon)?;
+        self.chunk.operation(Op::Print, pos.line);
+        Ok(())
+    }
+
+    fn expression_statement(&mut self) -> CompileResult<()> {
+        let pos = self.get_current()?.start;
+        self.expression()?;
+        self.consume(TokenType::Semicolon)?;
+        self.chunk.operation(Op::Pop, pos.line);
+        Ok(())
+    }
+
+    fn statement(&mut self) -> CompileResult<()> {
+        match self.cur_typ()? {
+            TokenType::Print => {
+                self.advance()?;
+                self.print_statement()
+            }
+            _ => self.expression_statement(),
+        }
     }
 
     fn number(&mut self) -> CompileResult<()> {
