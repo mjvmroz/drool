@@ -94,7 +94,7 @@ impl VM {
             Ok(v) => {
                 self.stack.push(v);
                 Ok(())
-            },
+            }
             Err(e) => {
                 self.stack.push(a);
                 self.stack.push(b);

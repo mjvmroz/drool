@@ -242,11 +242,11 @@ impl<'s> Compiler<'s> {
             TokenType::Minus => {
                 self.chunk.operation(Op::Negate, operator.start.line);
                 Ok(())
-            },
+            }
             TokenType::Bang => {
                 self.chunk.operation(Op::Not, operator.start.line);
                 Ok(())
-            },
+            }
             _ => Err(CompileError::Internal(format!(
                 "Unhandled unary operator '{}'",
                 operator.typ
@@ -264,31 +264,31 @@ impl<'s> Compiler<'s> {
             TokenType::Plus => {
                 self.chunk.operation(Op::Add, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::Minus => {
                 self.chunk.operation(Op::Subtract, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::Star => {
                 self.chunk.operation(Op::Multiply, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::Slash => {
                 self.chunk.operation(Op::Divide, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::EqualEqual => {
                 self.chunk.operation(Op::Equal, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::Greater => {
                 self.chunk.operation(Op::Greater, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::Less => {
                 self.chunk.operation(Op::Less, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::BangEqual => {
                 self.chunk.operation(Op::Equal, token.start.line);
                 self.chunk.operation(Op::Not, token.start.line);
@@ -317,15 +317,15 @@ impl<'s> Compiler<'s> {
             TokenType::True => {
                 self.chunk.operation(Op::True, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::False => {
                 self.chunk.operation(Op::False, token.start.line);
                 Ok(())
-            },
+            }
             TokenType::Nil => {
                 self.chunk.operation(Op::Nil, token.start.line);
                 Ok(())
-            },
+            }
             _ => Err(CompileError::Internal(format!(
                 "Unhandled literal: {}",
                 token

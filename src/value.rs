@@ -130,7 +130,7 @@ impl Value {
             (Self::Double(a), Self::Double(b)) => {
                 *a /= b;
                 Ok(())
-            },
+            }
             vw => Err(TypeError::NotANumber(*vw.0)),
         }
     }
