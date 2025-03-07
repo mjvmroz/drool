@@ -17,7 +17,7 @@ impl u24 {
 
     pub fn to_bytes(self) -> [u8; 3] {
         let u24(bytes) = self;
-        return bytes;
+        bytes
     }
 }
 
@@ -45,9 +45,9 @@ impl From<usize> for u24 {
     }
 }
 
-impl Into<usize> for u24 {
-    fn into(self) -> usize {
-        self.to_usize()
+impl From<u24> for usize {
+    fn from(val: u24) -> Self {
+        val.to_usize()
     }
 }
 

@@ -127,7 +127,10 @@ impl Value {
     #[inline]
     pub fn divide_mut(_heap: &mut Heap<Object>, a: &mut Value, b: Value) -> TypeResult<()> {
         match (a, b) {
-            (Self::Double(a), Self::Double(b)) => Ok(*a /= b),
+            (Self::Double(a), Self::Double(b)) => {
+                *a /= b;
+                Ok(())
+            },
             vw => Err(TypeError::NotANumber(*vw.0)),
         }
     }

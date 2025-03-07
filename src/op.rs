@@ -84,7 +84,7 @@ impl Op {
             _ => panic!("Corrupt bytecode"),
         };
         *ptr = ptr.add(op.cost());
-        return op;
+        op
     }
 
     pub fn write_to(&self, buffer: &mut Vec<u8>) {
@@ -172,11 +172,11 @@ impl Op {
             Self::Return => self.simple_instruction(),
             Self::ConstSmol(i) => {
                 let val_index: usize = (*i).into();
-                self.constant_instruction(val_index, &chunk.get_constant(val_index))
+                self.constant_instruction(val_index, chunk.get_constant(val_index))
             }
             Self::ConstThicc(i) => {
                 let val_index: usize = i.to_usize();
-                self.constant_instruction(val_index, &chunk.get_constant(val_index))
+                self.constant_instruction(val_index, chunk.get_constant(val_index))
             }
             Self::Negate => self.simple_instruction(),
             Self::Add => self.simple_instruction(),
@@ -226,7 +226,7 @@ impl Op {
             pos += op.cost();
             ops.push(op);
         }
-        return ops;
+        ops
     }
 }
 

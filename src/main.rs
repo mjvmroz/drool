@@ -57,5 +57,5 @@ fn switch() -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
-    Ok(switch()?)
+    switch()
 }

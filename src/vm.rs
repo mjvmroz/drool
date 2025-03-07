@@ -58,7 +58,7 @@ impl VM {
     }
 
     pub fn interpret<'s>(&mut self, src: &'s str) -> InterpretResult<'s, ()> {
-        let (chunk, heap) = Compiler::compile(&src).map_err(InterpretError::Compile)?;
+        let (chunk, heap) = Compiler::compile(src).map_err(InterpretError::Compile)?;
 
         self.chunk = chunk;
         self.heap = heap;
@@ -77,7 +77,8 @@ impl VM {
         let top = self.stack.peek()?;
         let res = op(&mut self.heap, *top)?;
         self.stack.pop()?;
-        Ok(self.stack.push(res))
+        self.stack.push(res);
+        Ok(())
     }
 
     #[inline]
@@ -90,7 +91,10 @@ impl VM {
         let res = op(&mut self.heap, a, b).map_err(TypeError::into);
 
         match res {
-            Ok(v) => Ok(self.stack.push(v)),
+            Ok(v) => {
+                self.stack.push(v);
+                Ok(())
+            },
             Err(e) => {
                 self.stack.push(a);
                 self.stack.push(b);
@@ -179,6 +183,6 @@ impl Stack {
 impl Display for Stack {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "          ")?;
-        self.0.iter().map(|v| write!(f, "[ {} ]", v)).collect()
+        self.0.iter().try_for_each(|v| write!(f, "[ {} ]", v))
     }
 }

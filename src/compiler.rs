@@ -67,7 +67,7 @@ impl<'s> Compiler<'s> {
         let mut compiler = Compiler::new(src);
 
         compiler.advance()?;
-        while compiler.current != None {
+        while compiler.current.is_some() {
             compiler.declaration()?;
         }
         compiler
@@ -156,7 +156,7 @@ impl<'s> Compiler<'s> {
             Ok(()) => Ok(()),
             Err(e) => {
                 println!("Compile error: {:?}", e);
-                while self.current != None {
+                while self.current.is_some() {
                     if self.get_previous()?.typ == TokenType::Semicolon {
                         return Ok(());
                     }
@@ -239,8 +239,14 @@ impl<'s> Compiler<'s> {
         self.parse_precedence(Precedence::Unary)?;
 
         match operator.typ {
-            TokenType::Minus => Ok(self.chunk.operation(Op::Negate, operator.start.line)),
-            TokenType::Bang => Ok(self.chunk.operation(Op::Not, operator.start.line)),
+            TokenType::Minus => {
+                self.chunk.operation(Op::Negate, operator.start.line);
+                Ok(())
+            },
+            TokenType::Bang => {
+                self.chunk.operation(Op::Not, operator.start.line);
+                Ok(())
+            },
             _ => Err(CompileError::Internal(format!(
                 "Unhandled unary operator '{}'",
                 operator.typ
@@ -255,13 +261,34 @@ impl<'s> Compiler<'s> {
         self.parse_precedence(rule.precedence.inc())?;
 
         match token.typ {
-            TokenType::Plus => Ok(self.chunk.operation(Op::Add, token.start.line)),
-            TokenType::Minus => Ok(self.chunk.operation(Op::Subtract, token.start.line)),
-            TokenType::Star => Ok(self.chunk.operation(Op::Multiply, token.start.line)),
-            TokenType::Slash => Ok(self.chunk.operation(Op::Divide, token.start.line)),
-            TokenType::EqualEqual => Ok(self.chunk.operation(Op::Equal, token.start.line)),
-            TokenType::Greater => Ok(self.chunk.operation(Op::Greater, token.start.line)),
-            TokenType::Less => Ok(self.chunk.operation(Op::Less, token.start.line)),
+            TokenType::Plus => {
+                self.chunk.operation(Op::Add, token.start.line);
+                Ok(())
+            },
+            TokenType::Minus => {
+                self.chunk.operation(Op::Subtract, token.start.line);
+                Ok(())
+            },
+            TokenType::Star => {
+                self.chunk.operation(Op::Multiply, token.start.line);
+                Ok(())
+            },
+            TokenType::Slash => {
+                self.chunk.operation(Op::Divide, token.start.line);
+                Ok(())
+            },
+            TokenType::EqualEqual => {
+                self.chunk.operation(Op::Equal, token.start.line);
+                Ok(())
+            },
+            TokenType::Greater => {
+                self.chunk.operation(Op::Greater, token.start.line);
+                Ok(())
+            },
+            TokenType::Less => {
+                self.chunk.operation(Op::Less, token.start.line);
+                Ok(())
+            },
             TokenType::BangEqual => {
                 self.chunk.operation(Op::Equal, token.start.line);
                 self.chunk.operation(Op::Not, token.start.line);
@@ -287,9 +314,18 @@ impl<'s> Compiler<'s> {
     fn literal(&mut self) -> CompileResult<()> {
         let token = self.get_previous()?;
         match token.typ {
-            TokenType::True => Ok(self.chunk.operation(Op::True, token.start.line)),
-            TokenType::False => Ok(self.chunk.operation(Op::False, token.start.line)),
-            TokenType::Nil => Ok(self.chunk.operation(Op::Nil, token.start.line)),
+            TokenType::True => {
+                self.chunk.operation(Op::True, token.start.line);
+                Ok(())
+            },
+            TokenType::False => {
+                self.chunk.operation(Op::False, token.start.line);
+                Ok(())
+            },
+            TokenType::Nil => {
+                self.chunk.operation(Op::Nil, token.start.line);
+                Ok(())
+            },
             _ => Err(CompileError::Internal(format!(
                 "Unhandled literal: {}",
                 token
@@ -303,7 +339,8 @@ impl<'s> Compiler<'s> {
             TokenType::String => {
                 let obj = Object::Str(self.scanner.src[token.start.pos..][..token.length].into());
                 let handle = self.heap.insert_temp(obj);
-                Ok(self.chunk.push_const(Value::Obj(handle), token.start.line))
+                self.chunk.push_const(Value::Obj(handle), token.start.line);
+                Ok(())
             }
             _ => Err(CompileError::Internal(format!(
                 "Unhandled string literal: {}",

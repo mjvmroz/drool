@@ -19,7 +19,7 @@ impl Repl {
             print!("> ");
             stdout().flush()?;
             let line: String = text_io::read!("{}\n");
-            if line.len() == 0 {
+            if line.is_empty() {
                 println!();
                 return Ok(());
             }

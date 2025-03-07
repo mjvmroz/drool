@@ -189,7 +189,7 @@ impl<'s> Scanner<'s> {
                 }
             };
         }
-        return self.src[start.pos..self.cursor.pos].to_string();
+        self.src[start.pos..self.cursor.pos].to_string()
     }
 
     fn eat_whitespace(&mut self) {

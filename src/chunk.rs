@@ -33,12 +33,12 @@ impl Chunk {
 
     #[inline]
     pub fn code_ptr(&self) -> *const u8 {
-        return self.code.as_ptr();
+        self.code.as_ptr()
     }
 
     #[inline]
     pub fn get_constant(&self, val_index: usize) -> &Value {
-        return &self.values[val_index];
+        &self.values[val_index]
     }
 
     pub fn operation(&mut self, op: Op, op_line: usize) {
@@ -70,7 +70,7 @@ impl Chunk {
         let mut pos: usize = 0;
         // TODO: figure out stateful iterators
         for (op_index, op) in ops.iter().enumerate() {
-            op.print(&self, op_index, pos);
+            op.print(self, op_index, pos);
             pos += op.cost();
         }
     }
