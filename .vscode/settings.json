@@ -25,15 +25,9 @@
         "editor.defaultFormatter": "esbenp.prettier-vscode",
         "editor.wordWrap": "wordWrapColumn",
         "editor.wordWrapColumn": 80,
-        "editor.wordBasedSuggestions": false,
+        "editor.wordBasedSuggestions": "off",
         "editor.lineNumbers": "off",
-        "editor.renderIndentGuides": false
-    },
-    // Yes, this is mandatory.
-    "vscode-pets.theme": "none",
-    "vscode-pets.petType": "crab",
-    "vscode-pets.position": "explorer",
-    "vscode-pets.petColor": "red",
-    "vscode-pets.petSize": "medium",
-    "rust-analyzer.inlayHints.enable": true
+        "editor.renderIndentGuides": false,
+        "editor.guides.indentation": false
+    }
 }

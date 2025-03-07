@@ -1,6 +1,6 @@
 use crate::{chunk::Chunk, data::FromU24Bytes};
 use crate::{data::u24, value::Value};
-use std::{convert::TryInto, u8, usize};
+use std::convert::TryInto;
 
 // The actual constant map, for use in the real, scary world.
 // Rust doesn't yet me let associate these with the actual enum entries.
@@ -84,7 +84,7 @@ impl Op {
             _ => panic!("Corrupt bytecode"),
         };
         *ptr = ptr.add(op.cost());
-        return op;
+        op
     }
 
     pub fn write_to(&self, buffer: &mut Vec<u8>) {
@@ -172,11 +172,11 @@ impl Op {
             Self::Return => self.simple_instruction(),
             Self::ConstSmol(i) => {
                 let val_index: usize = (*i).into();
-                self.constant_instruction(val_index, &chunk.get_constant(val_index))
+                self.constant_instruction(val_index, chunk.get_constant(val_index))
             }
             Self::ConstThicc(i) => {
                 let val_index: usize = i.to_usize();
-                self.constant_instruction(val_index, &chunk.get_constant(val_index))
+                self.constant_instruction(val_index, chunk.get_constant(val_index))
             }
             Self::Negate => self.simple_instruction(),
             Self::Add => self.simple_instruction(),
@@ -213,11 +213,11 @@ impl Op {
             .map_or(Self::ConstThicc(u24::from(val_index)), Self::ConstSmol)
     }
 
-    pub fn read_at_pos(buffer: &Vec<u8>, pos: usize) -> Op {
+    pub fn read_at_pos(buffer: &[u8], pos: usize) -> Op {
         unsafe { Self::read_and_advance(&mut buffer.as_ptr().add(pos)) }
     }
 
-    pub fn read_all(buffer: &Vec<u8>) -> Vec<Op> {
+    pub fn read_all(buffer: &[u8]) -> Vec<Op> {
         let mut pos: usize = 0;
         let mut ops: Vec<Op> = Vec::new();
         // TODO: figure out stateful iterators
@@ -226,7 +226,7 @@ impl Op {
             pos += op.cost();
             ops.push(op);
         }
-        return ops;
+        ops
     }
 }
 
