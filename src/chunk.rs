@@ -1,6 +1,5 @@
 use crate::op::Op;
 use crate::value::Value;
-use std::{u8, usize};
 
 struct LineData {
     ops: usize,

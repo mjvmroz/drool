@@ -3,7 +3,6 @@
     "recommendations": [
         "matklad.rust-analyzer",
         "esbenp.prettier-vscode",
-        "tonybaloney.vscode-pets",
         "dberezin.lox-language",
         "vadimcn.vscode-lldb",
         "ms-vscode.cpptools"

@@ -1,7 +1,4 @@
-use std::{
-    convert::{TryFrom, TryInto},
-    usize,
-};
+use std::convert::{TryFrom, TryInto};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]

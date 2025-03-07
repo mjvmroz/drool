@@ -181,13 +181,8 @@ impl<'s> Scanner<'s> {
         P: FnMut(&char) -> bool,
     {
         let start = self.cursor;
-        loop {
-            match self.peek().filter(|c| predicate(c)) {
-                Some(c) => self.cursor.inc_for(c),
-                None => {
-                    break;
-                }
-            };
+        while let Some(c) = self.peek().filter(|c| predicate(c)) {
+            self.cursor.inc_for(c);
         }
         self.src[start.pos..self.cursor.pos].to_string()
     }
