@@ -1,4 +1,4 @@
-# ドルール (drool) 🤤
+# ドルール (drool) 🤤 [![built with garnix](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fgarnix.io%2Fapi%2Fbadges%2Fmjvmroz%2Fdrool%3Fbranch%3Dmaster)](https://garnix.io/repo/mjvmroz/drool)
 
 A work-in-progress [lox 🐟](https://craftinginterpreters.com/) bytecode interpreter, written in Rust 🦀.
 
